@@ -78,6 +78,9 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |DB|Data byte, which can be used to specify byte data.|
 |DW|Data word, which can be used to specify word data.  It is in big-endian form.|
 
+## Comment Support
+Comments are supported by the use of semicolons.
+
 ## Label Support
 This assembler has support for global labels.  Support for local labels may get added in the future.  Global labels are in the following form:
 ```
@@ -85,4 +88,13 @@ GlobalLabel:
 ```
 Primary uses for labels is for various instructions that happen to support addresses.  HyperCHIP-64 extension can actually access labels outside the 4KB range and into the 64KB range.
 
-Work In Progress
+Here's an example demonstrating the use of labels:
+```
+LD V0, 1
+MainLoop:
+	SKP V0 ; Skip the next instruction if the '1' key was pressed.
+	JP MainLoop
+	JP EndLoop
+EndLoop:
+	JP EndLoop
+```
