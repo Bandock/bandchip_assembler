@@ -20,6 +20,7 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |Option Type |Description |Options |
 |------------|------------|--------|
 |ALIGN|Sets the memory alignment.|On (Word-Aligned/2 Byte), Off|
+|EXTENSION|Sets the extension to use.|CHIP8, SCHIP10, SCHIP11, HCHIP64|
 
 ## Instructions
 |Opcode |Instruction |Description |Supported Extensions |
@@ -28,16 +29,42 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |00EE|RET|Returns from the subroutine.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |1NNN|JP NNN|Jumps to the absolute address.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |2NNN|CALL NNN|Calls the subroutine at that absolute address.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
-|3XNN|SE VX,NN|Skips the following instruction if VX == NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
-|4XNN|SNE VX,NN|Skips the following instruction if VX != NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
-|5XY0|SE VX,VY|Skips the following instruction if VX == VY|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
-|6XNN|LD VX,NN|Sets the VX register to NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|3XNN|SE VX, NN|Skips the following instruction if VX == NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|4XNN|SNE VX, NN|Skips the following instruction if VX != NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|5XY0|SE VX, VY|Skips the following instruction if VX == VY|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|6XNN|LD VX, NN|Sets the VX register to NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|7XNN|ADD VX, NN|Add NN to the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY0|LD VX, VY|Sets the VX register to the VY register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY1|OR VX, VY|Sets the VX register to VX OR VY.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY2|AND VX, VY|Sets the VX register to VX AND VY.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY3|XOR VX, VY|Sets the VX register to VX XOR VY.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY4|ADD VX, VY|Add the VY register to the VX register.  Sets the VF register to 01 if carried, otherwise 00.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY5|SUB VX, VY|Subtracts the VY register from the VX register and stores the result in the VX register.  Sets the VF register to 00 if borrowed, otherwise 01.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY6|SHR VX, VY|Stores the VY register shifted one bit to the right into the VX register.  Before the shift, the least significant bit is stored in the VF register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XY7|SUBN VX, VY|Subtracts the VX register from the VY register and stores the result in the VX register.  Sets the VF register to 00 if borrowed, otherwise 01.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|8XYE|SHL VX, VY|Stores the VY register shifted one bit to the left into the VX register.  Before the shift, the most significant bit is stored in the VF register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|9XY0|SNE VX, VY|Skips the following instruction if VX != VY|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|ANNN|LD I, NNN|Loads the address into the I register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|BNNN|JP V0, NNN|Jumps to the absolute address + V0 register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|CXNN|RND VX, NN|Generates a random number based on the NN mask and stores the result in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|DXYN|DRW VX, VY, N|Draws the sprite stored in the I register with the height of N (if not 0, draws a 16x16 in SuperCHIP HiRes modes) located at (VX, VY).|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|EX9E|SKP VX|Skips the following instruction if the key stored in the VX register was pressed.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|EXA1|SKNP VX|Skips the following instruction if the key stored in the VX register was not pressed.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX07|LD VX, DT|Sets the VX register to the delay timer register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX0A|LD VX, K|Waits for a keypress and then stores it in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX15|LD DT, VX|Sets the delay timer register to the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX18|LD ST, VX|Sets the sound timer register to the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX1E|ADD I, VX|Add the VX register to the I register.|CHIP-8, SuperCHIP V1.0/V1.1/HyperCHIP-64|
+|FX29|LD F, VX|Sets the I register to the 4x5 font sprite digit stored in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX33|LD B, VX|Stores the value in the VX register in 3-digit unpacked BCD form at I, I+1, and I+2.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX55|LD [I], VX|Stores registers V0 to VX in memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX65|LD VX, [I]|Loads registers V0 to VX from memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 
 ## Instruction Prefixes (HyperCHIP-64 Extension)
 |Prefix |Description |Affected Instructions |
 |-------|------------|----------------------|
-|FNB0|4-bit Absolute Address Extend Prefix that extends addresses.|JP NNN; CALL NNN;|
-|FXB1|V Register Offset Override Prefix that replaces the default register.|JP V0,NNN|
+|FNB0|4-bit Absolute Address Extend Prefix that extends addresses.|JP NNNN; CALL NNNN; LD I, NNNN; JP V0, NNNN|
+|FXB1|V Register Offset Override Prefix that replaces the default register.|JP VX, NNN|
 
 ## Supported Notations
 |Notation |Description |
