@@ -551,7 +551,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					{
 						for (size_t c = 0; c < token.size(); ++c)
 						{
-							u_token += token[c];
+							u_token += toupper(static_cast<unsigned char>(token[c]));
 						}
 						switch (token_type)
 						{
