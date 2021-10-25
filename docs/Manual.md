@@ -1,3 +1,6 @@
 # BandCHIP Assembler Manual (Version 0.1)
 
-## Table of Contents
+## Getting Started
+```
+bandchip_assembler <input> -o <output>
+```
