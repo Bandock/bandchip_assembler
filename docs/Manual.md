@@ -25,7 +25,7 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 ## Instructions
 |Opcode |Instruction |Description |Supported Extensions |
 |-------|------------|------------|---------------------|
-|00DN|SCD|Scrolls down the screen by N pixels.|SuperCHIP V1.1, HyperCHIP-64|
+|00CN|SCD|Scrolls down the screen by N pixels.|SuperCHIP V1.1, HyperCHIP-64|
 |00E0|CLS|Clears the screen.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |00EE|RET|Returns from the subroutine.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |00FB|SCR|Scrolls right the screen by 4 pixels.|SuperCHIP V1.1, HyperCHIP-64|
