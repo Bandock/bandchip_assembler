@@ -1,4 +1,4 @@
-# BandCHIP Assembler Manual (Version 0.1)
+# BandCHIP Assembler Manual (Version 0.2)
 
 ## Getting Started
 Run the program, using the following syntax:
@@ -25,8 +25,14 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 ## Instructions
 |Opcode |Instruction |Description |Supported Extensions |
 |-------|------------|------------|---------------------|
+|00DN|SCD|Scrolls down the screen by N pixels.|SuperCHIP V1.1, HyperCHIP-64|
 |00E0|CLS|Clears the screen.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |00EE|RET|Returns from the subroutine.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|00FB|SCR|Scrolls right the screen by 4 pixels.|SuperCHIP V1.1, HyperCHIP-64|
+|00FC|SCL|Scrolls left the screen by 4 pixels.|SuperCHIP V1.1, HyperCHIP-64|
+|00FD|EXIT|Exits the interpreter.|SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|00FE|LOW|Enters Low Resolution Mode.|SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|00FF|HIGH|Enters High Resolution Mode.|SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |1NNN|JP NNN|Jumps to the absolute address.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |2NNN|CALL NNN|Calls the subroutine at that absolute address.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |3XNN|SE VX, NN|Skips the following instruction if VX == NN|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
@@ -47,7 +53,7 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |ANNN|LD I, NNN|Loads the address into the I register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |BNNN|JP V0, NNN|Jumps to the absolute address + V0 register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |CXNN|RND VX, NN|Generates a random number based on the NN mask and stores the result in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
-|DXYN|DRW VX, VY, N|Draws the sprite stored in the I register with the height of N (if not 0, draws a 16x16 in SuperCHIP HiRes modes) located at (VX, VY).|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|DXYN|DRW VX, VY, N|Draws the sprite stored in the I register with the height of N (if N == 0, draws a 16x16 in SuperCHIP HiRes modes) located at (VX, VY).|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |EX9E|SKP VX|Skips the following instruction if the key stored in the VX register was pressed.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |EXA1|SKNP VX|Skips the following instruction if the key stored in the VX register was not pressed.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |FX07|LD VX, DT|Sets the VX register to the delay timer register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
@@ -56,9 +62,12 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |FX18|LD ST, VX|Sets the sound timer register to the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |FX1E|ADD I, VX|Add the VX register to the I register.|CHIP-8, SuperCHIP V1.0/V1.1/HyperCHIP-64|
 |FX29|LD F, VX|Sets the I register to the 4x5 font sprite digit stored in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX30|LD HF, VX|Sets the I register to the 8x10 font sprite digit stored in the VX register.|SuperCHIP V1.1, HyperCHIP-64|
 |FX33|LD B, VX|Stores the value in the VX register in 3-digit unpacked BCD form at I, I+1, and I+2.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |FX55|LD [I], VX|Stores registers V0 to VX in memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
 |FX65|LD VX, [I]|Loads registers V0 to VX from memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX75|LD R, VX|Stores registers V0 to VX in User RPL Flags. (X <= 7)|SuperCHIP V1.0/V1.1, HyperCHIP-64|
+|FX85|LD VX, R|Loads registers V0 to VX from User RPL Flags. (X <= 7)|SuperCHIP V1.0/V1.1, HyperCHIP-64|
 
 ## Instruction Prefixes (HyperCHIP-64 Extension)
 |Prefix |Description |Affected Instructions |

@@ -18,7 +18,8 @@ namespace BandCHIP_Assembler
 	enum class TokenType { None, Instruction, Extension, Align, DataByte, DataWord };
 	enum class InstructionType {
 		None, ClearScreen, Return, Jump, Call, SkipEqual, SkipNotEqual, Load, Add, Or, And, Xor,
-		Subtract, ShiftRight, SubtractN, ShiftLeft, Random, Draw, SkipKeyPressed, SkipKeyNotPressed
+		Subtract, ShiftRight, SubtractN, ShiftLeft, Random, Draw, SkipKeyPressed, SkipKeyNotPressed,
+		ScrollDown, ScrollRight, ScrollLeft, Exit, Low, High
 	};
 	enum class OperandType {
 		None, Label, Register, ImmediateValue, AddressRegister, DelayTimer, SoundTimer, Pointer,
@@ -74,10 +75,11 @@ namespace BandCHIP_Assembler
 			unsigned short current_address;
 			size_t error_count;
 			std::vector<std::string> Args;
-			const std::array<std::string, 23> TokenList = {
+			const std::array<std::string, 29> TokenList = {
 				"EXTENSION", "ALIGN", "DB", "DW", "CLS", "RET", "JP",
 				"CALL", "SE", "SNE", "LD", "ADD", "OR", "AND", "XOR",
-				"SUB", "SHR", "SUBN", "SHL", "RND", "DRW", "SKP", "SKNP"
+				"SUB", "SHR", "SUBN", "SHL", "RND", "DRW", "SKP", "SKNP",
+				"SCD", "SCR", "SCL", "EXIT", "LOW", "HIGH"
 			};
 			const std::array<std::string, 4> ExtensionList = {
 				"CHIP8", "SCHIP10", "SCHIP11", "HCHIP64"
@@ -94,7 +96,7 @@ namespace BandCHIP_Assembler
 			std::vector<Symbol> SymbolTable;
 			std::vector<UnresolvedReferenceData> UnresolvedReferenceList;
 			std::vector<unsigned char> ProgramData;
-			const VersionData Version = { 0, 1 };
+			const VersionData Version = { 0, 2 };
 			int retcode;
 	};
 }

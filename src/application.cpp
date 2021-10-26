@@ -333,19 +333,22 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				{
 					case ';':
 					{
-						if (!pointer_mode)
+						if (!comment)
 						{
-							comment = true;
+							if (!pointer_mode)
+							{
+								comment = true;
+							}
+							else
+							{
+								error = true;
+							}
+							break;
 						}
-						else
-						{
-							error = true;
-						}
-						break;
 					}
 					case ' ':
 					{
-						if (token.size() > 0 && !pointer_mode)
+						if (token.size() > 0 && !comment && !pointer_mode)
 						{
 							switch (token_type)
 							{
@@ -377,6 +380,18 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											{
 												token_type = TokenType::DataWord;
 											}
+											else if (t == "SCD")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollDown;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP11Required;
+													break;
+												}
+											}
 											else if (t == "CLS")
 											{
 												token_type = TokenType::Instruction;
@@ -388,6 +403,66 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Return;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+											}
+											else if (t == "SCR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollRight;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP11Required;
+													break;
+												}
+											}
+											else if (t == "SCL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollLeft;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP11Required;
+													break;
+												}
+											}
+											else if (t == "EXIT")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Exit;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP10Required;
+													break;
+												}
+											}
+											else if (t == "LOW")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Low;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP10Required;
+													break;
+												}
+											}
+											else if (t == "HIGH")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::High;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP10Required;
+													break;
+												}
 											}
 											else if (t == "JP")
 											{
@@ -510,375 +585,61 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					}
 					case '[':
 					{
-						if (current_operand.Type == OperandType::None)
+						if (!comment)
 						{
-							if (!pointer_mode)
+							if (current_operand.Type == OperandType::None)
 							{
-								current_operand.Type = OperandType::Pointer;
-								pointer_mode = true;
+								if (!pointer_mode)
+								{
+									current_operand.Type = OperandType::Pointer;
+									pointer_mode = true;
+								}
+								else
+								{
+									error = true;
+								}
 							}
 							else
 							{
 								error = true;
 							}
-						}
-						else
-						{
-							error = true;
 						}
 						break;
 					}
 					case ']':
 					{
-						if (current_operand.Type == OperandType::Pointer)
+						if (!comment)
 						{
-							if (pointer_mode)
+							if (current_operand.Type == OperandType::Pointer)
 							{
-								pointer_mode = false;
+								if (pointer_mode)
+								{
+									pointer_mode = false;
+								}
+								else
+								{
+									error = true;
+								}
 							}
 							else
 							{
 								error = true;
 							}
 						}
-						else
-						{
-							error = true;
-						}
 						break;
 					}
 					case ',':
 					{
-						for (size_t c = 0; c < token.size(); ++c)
+						if (!comment)
 						{
-							u_token += toupper(static_cast<unsigned char>(token[c]));
-						}
-						switch (token_type)
-						{
-							case TokenType::Instruction:
-							{
-								if (current_operand.Type != OperandType::ImmediateValue && current_operand.Type != OperandType::Pointer)
-								{
-									bool operand_type_found = false;
-									for (auto r : RegisterList)
-									{
-										if (u_token == r)
-										{
-											operand_type_found = true;
-											token = u_token;
-											current_operand.Type = OperandType::Register;
-											break;
-										}
-									}
-									if (!operand_type_found)
-									{
-										if (u_token == "I")
-										{
-											current_operand.Type = OperandType::AddressRegister;
-										}
-										else if (u_token == "DT")
-										{
-											current_operand.Type = OperandType::DelayTimer;
-										}
-										else if (u_token == "ST")
-										{
-											current_operand.Type = OperandType::SoundTimer;
-										}
-										else if (u_token == "K")
-										{
-											current_operand.Type = OperandType::Key;
-										}
-										else if (u_token == "F")
-										{
-											current_operand.Type = OperandType::LoResFont;
-										}
-										else if (u_token == "HF")
-										{
-											current_operand.Type = OperandType::HiResFont;
-										}
-										else if (u_token == "B")
-										{
-											current_operand.Type = OperandType::BCD;
-										}
-										else if (u_token == "R")
-										{
-											current_operand.Type = OperandType::UserRPL;
-										}
-									}
-								}
-								current_operand.Data = std::move(token);
-								current_instruction.OperandList.push_back(current_operand);
-								current_operand = { OperandType::None, "" };
-								u_token = "";
-								break;
-							}
-							case TokenType::DataByte:
-							{
-								unsigned char value = ProcessDataByte();
-								if (error)
-								{
-									break;
-								}
-								ProgramData.push_back(value);
-								if (align && ProgramData.size() % 2 != 0)
-								{
-									ProgramData.push_back(0x00);
-									current_address += 2;
-								}
-								else
-								{
-									++current_address;
-								}
-								if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-								{
-									error = true;
-									error_type = ErrorType::Only4KBSupported;
-									break;
-								}
-								token = "";
-								u_token = "";
-								break;
-							}
-							case TokenType::DataWord:
-							{
-								unsigned short value = ProcessDataWord();
-								if (error)
-								{
-									break;
-								}
-								if (align && ProgramData.size() % 2 != 0)
-								{
-									ProgramData.push_back(0x00);
-									++current_address;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-									{
-										error = true;
-										error_type = ErrorType::Only4KBSupported;
-										break;
-									}
-								}
-								ProgramData.push_back(static_cast<unsigned char>(value >> 8));
-								ProgramData.push_back(static_cast<unsigned char>(value & 0xFF));
-								current_address += 2;
-								if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-								{
-									error = true;
-									error_type = ErrorType::Only4KBSupported;
-									break;
-								}
-								token = "";
-								u_token = "";
-								break;
-							}
-							default:
-							{
-								error = true;
-								break;
-							}
-						}
-						break;
-					}
-					case ':':
-					{
-						for (size_t c = 0; c < token.size(); ++c)
-						{
-							u_token += toupper(static_cast<unsigned char>(token[c]));
-						}
-						for (auto t : TokenList)
-						{
-							if (u_token == t)
-							{
-								error = true;
-								error_type = ErrorType::ReservedToken;
-								break;
-							}
-						}
-						if (error)
-						{
-							break;
-						}
-						if (u_token == "I")
-						{
-							error = true;
-							error_type = ErrorType::ReservedToken;
-							break;
-						}
-						Symbol Label = { std::move(token), SymbolType::Label, current_address };
-						SymbolTable.push_back(Label);
-						token = "";
-						break;
-					}
-					case '\0':
-					{
-						if (token.size() > 0)
-						{
-							bool valid_token = false;
 							for (size_t c = 0; c < token.size(); ++c)
 							{
 								u_token += toupper(static_cast<unsigned char>(token[c]));
 							}
 							switch (token_type)
 							{
-								case TokenType::None:
-								{
-									for (auto t : TokenList)
-									{
-										if (u_token == t)
-										{
-											valid_token = true;
-											if (t == "CLS")
-											{
-												token_type = TokenType::Instruction;
-												ProgramData.push_back(0x00);
-												ProgramData.push_back(0xE0);
-												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-												{
-													error = true;
-													error_type = ErrorType::Only4KBSupported;
-												}
-											}
-											else if (t == "RET")
-											{
-												token_type = TokenType::Instruction;
-												ProgramData.push_back(0x00);
-												ProgramData.push_back(0xEE);
-												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-												{
-													error = true;
-													error_type = ErrorType::Only4KBSupported;
-												}
-											}
-											else if (t == "JP")
-											{
-												current_instruction.Type = InstructionType::Jump;
-												current_instruction.OperandMinimum = 1;
-												current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "CALL")
-											{
-												current_instruction.Type = InstructionType::Call;
-												current_instruction.OperandMinimum = 1;
-												current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SE")
-											{
-												current_instruction.Type = InstructionType::SkipEqual;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SNE")
-											{
-												current_instruction.Type = InstructionType::SkipNotEqual;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "LD")
-											{
-												current_instruction.Type = InstructionType::Load;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "ADD")
-											{
-												current_instruction.Type = InstructionType::Add;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "OR")
-											{
-												current_instruction.Type = InstructionType::Or;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "AND")
-											{
-												current_instruction.Type = InstructionType::And;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "XOR")
-											{
-												current_instruction.Type = InstructionType::Xor;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SUB")
-											{
-												current_instruction.Type = InstructionType::Subtract;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SHR")
-											{
-												current_instruction.Type = InstructionType::ShiftRight;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SUBN")
-											{
-												current_instruction.Type = InstructionType::SubtractN;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SHL")
-											{
-												current_instruction.Type = InstructionType::ShiftLeft;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "RND")
-											{
-												current_instruction.Type = InstructionType::Random;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "DRW")
-											{
-												current_instruction.Type = InstructionType::Draw;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 3;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SKP")
-											{
-												current_instruction.Type = InstructionType::SkipKeyPressed;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											else if (t == "SKNP")
-											{
-												current_instruction.Type = InstructionType::SkipKeyNotPressed;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-												error = true;
-												error_type = ErrorType::TooFewOperands;
-											}
-											break;
-										}
-									}
-									break;
-								}
 								case TokenType::Instruction:
 								{
-									valid_token = true;
 									if (current_operand.Type != OperandType::ImmediateValue && current_operand.Type != OperandType::Pointer)
 									{
 										bool operand_type_found = false;
@@ -926,1149 +687,492 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											{
 												current_operand.Type = OperandType::UserRPL;
 											}
-											else
+										}
+									}
+									current_operand.Data = std::move(token);
+									current_instruction.OperandList.push_back(current_operand);
+									current_operand = { OperandType::None, "" };
+									u_token = "";
+									break;
+								}
+								case TokenType::DataByte:
+								{
+									unsigned char value = ProcessDataByte();
+									if (error)
+									{
+										break;
+									}
+									ProgramData.push_back(value);
+									if (align && ProgramData.size() % 2 != 0)
+									{
+										ProgramData.push_back(0x00);
+										current_address += 2;
+									}
+									else
+									{
+										++current_address;
+									}
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									token = "";
+									u_token = "";
+									break;
+								}
+								case TokenType::DataWord:
+								{
+									unsigned short value = ProcessDataWord();
+									if (error)
+									{
+										break;
+									}
+									if (align && ProgramData.size() % 2 != 0)
+									{
+										ProgramData.push_back(0x00);
+										++current_address;
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										{
+											error = true;
+											error_type = ErrorType::Only4KBSupported;
+											break;
+										}
+									}
+									ProgramData.push_back(static_cast<unsigned char>(value >> 8));
+									ProgramData.push_back(static_cast<unsigned char>(value & 0xFF));
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									token = "";
+									u_token = "";
+									break;
+								}
+								default:
+								{
+									error = true;
+									break;
+								}
+							}
+						}
+						break;
+					}
+					case ':':
+					{
+						if (!comment)
+						{
+							for (size_t c = 0; c < token.size(); ++c)
+							{
+								u_token += toupper(static_cast<unsigned char>(token[c]));
+							}
+							for (auto t : TokenList)
+							{
+								if (u_token == t)
+								{
+									error = true;
+									error_type = ErrorType::ReservedToken;
+									break;
+								}
+							}
+							if (error)
+							{
+								break;
+							}
+							if (u_token == "I")
+							{
+								error = true;
+								error_type = ErrorType::ReservedToken;
+								break;
+							}
+							Symbol Label = { std::move(token), SymbolType::Label, current_address };
+							SymbolTable.push_back(Label);
+							token = "";
+						}
+						break;
+					}
+					case '\0':
+					{
+						if (token.size() > 0)
+						{
+							bool valid_token = false;
+							for (size_t c = 0; c < token.size(); ++c)
+							{
+								u_token += toupper(static_cast<unsigned char>(token[c]));
+							}
+							switch (token_type)
+							{
+								case TokenType::None:
+								{
+									for (auto t : TokenList)
+									{
+										if (u_token == t)
+										{
+											valid_token = true;
+											if (t == "SCD")
 											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollDown;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::SuperCHIP11Required : ErrorType::TooFewOperands;
+											}
+											else if (t == "CLS")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ClearScreen;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
 												/*
-												std::regex ptr("\\[[a-zA-Z0-9\\+]{1,}\\]");
-												std::smatch ptr_match;
-												if (std::regex_search(token, ptr_match, ptr))
+												ProgramData.push_back(0x00);
+												ProgramData.push_back(0xE0);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
-													if (ptr_match.prefix().str().size() > 0 || ptr_match.suffix().str().size() > 0)
-													{
-														error = true;
-														error_type = ErrorType::InvalidValue;
-														break;
-													}
-													current_operand.Type = OperandType::Pointer;
-													token = ptr_match.str();
-													u_token = "";
-													for (size_t c = 0; c < token.size(); ++c)
-													{
-														u_token += toupper(static_cast<unsigned char>(token[c]));
-													}
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
 												}
+												*/
+											}
+											else if (t == "RET")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Return;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												/*
+												ProgramData.push_back(0x00);
+												ProgramData.push_back(0xEE);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+												}
+												*/
+											}
+											else if (t == "SCR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollRight;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP11Required;
+												}
+												/*
 												else
 												{
+													ProgramData.push_back(0x00);
+													ProgramData.push_back(0xFB);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+													}
+												}
 												*/
+											}
+											else if (t == "SCL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollLeft;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP11Required;
+												}
+												/*
+												else
+												{
+													ProgramData.push_back(0x00);
+													ProgramData.push_back(0xFC);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+													}
+												}
+												*/
+											}
+											else if (t == "EXIT")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Exit;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP10Required;
+												}
+												/*
+												else
+												{
+													ProgramData.push_back(0x00);
+													ProgramData.push_back(0xFD);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+													}
+												}
+												*/
+											}
+											else if (t == "LOW")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Low;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP10Required;
+												}
+												/*
+												else
+												{
+													ProgramData.push_back(0x00);
+													ProgramData.push_back(0xFE);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+													}
+												}
+												*/
+											}
+											else if (t == "HIGH")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::High;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::SuperCHIP10Required;
+												}
+												/*
+												else
+												{
+													ProgramData.push_back(0x00);
+													ProgramData.push_back(0xFF);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+													}
+												}
+												*/
+											}
+											else if (t == "JP")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Jump;
+												current_instruction.OperandMinimum = 1;
+												current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "CALL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Call;
+												current_instruction.OperandMinimum = 1;
+												current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SE")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::SkipEqual;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SNE")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::SkipNotEqual;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "LD")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Load;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "ADD")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Add;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "OR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Or;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "AND")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::And;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "XOR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Xor;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SUB")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Subtract;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SHR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ShiftRight;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SUBN")
+											{
+												current_instruction.Type = InstructionType::SubtractN;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SHL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ShiftLeft;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "RND")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Random;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "DRW")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Draw;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 3;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SKP")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::SkipKeyPressed;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "SKNP")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::SkipKeyNotPressed;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = ErrorType::TooFewOperands;
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case TokenType::Instruction:
+								{
+									valid_token = true;
+									if (current_operand.Type != OperandType::ImmediateValue && current_operand.Type != OperandType::Pointer)
+									{
+										bool operand_type_found = false;
+										for (auto r : RegisterList)
+										{
+											if (u_token == r)
+											{
+												operand_type_found = true;
+												token = u_token;
+												current_operand.Type = OperandType::Register;
+												break;
+											}
+										}
+										if (!operand_type_found)
+										{
+											if (u_token == "I")
+											{
+												current_operand.Type = OperandType::AddressRegister;
+											}
+											else if (u_token == "DT")
+											{
+												current_operand.Type = OperandType::DelayTimer;
+											}
+											else if (u_token == "ST")
+											{
+													current_operand.Type = OperandType::SoundTimer;
+											}
+											else if (u_token == "K")
+											{
+												current_operand.Type = OperandType::Key;
+											}
+											else if (u_token == "F")
+											{
+												current_operand.Type = OperandType::LoResFont;
+											}
+											else if (u_token == "HF")
+											{
+												current_operand.Type = OperandType::HiResFont;
+											}
+											else if (u_token == "B")
+											{
+												current_operand.Type = OperandType::BCD;
+											}
+											else if (u_token == "R")
+											{
+												current_operand.Type = OperandType::UserRPL;
+											}
+											else
+											{
 												current_operand.Type = OperandType::Label;
-												// }
 											}
 										}
 									}
 									current_operand.Data = std::move(token);
 									current_instruction.OperandList.push_back(current_operand);
-									switch (current_instruction.Type)
-									{
-										case InstructionType::ClearScreen:
-										{
-											if (current_instruction.OperandList.size() > 0)
-											{
-												error = true;
-												error_type = ErrorType::NoOperandsSupported;
-												break;
-											}
-											ProgramData.push_back(0x00);
-											ProgramData.push_back(0xE0);
-											current_address += 2;
-											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-											{
-												error = true;
-												error_type = ErrorType::Only4KBSupported;
-												break;
-											}
-											break;
-										}
-										case InstructionType::Return:
-										{
-											if (current_instruction.OperandList.size() > 0)
-											{
-												error = true;
-												error_type = ErrorType::NoOperandsSupported;
-												break;
-											}
-											ProgramData.push_back(0x00);
-											ProgramData.push_back(0xEE);
-											current_address += 2;
-											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-											{
-												error = true;
-												error_type = ErrorType::Only4KBSupported;
-												break;
-											}
-											break;
-										}
-										case InstructionType::Jump:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Label:
-												{
-													ProcessLabelOperand(0, 0x1);
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg = 0x0;
-													if (!ProcessRegisterOperand(0, reg))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (reg != 0x0 && CurrentExtension == ExtensionType::HyperCHIP64)
-													{
-														ProgramData.push_back(0xF0 | (reg & 0xF));
-														ProgramData.push_back(0xB1);
-														current_address += 2;
-													}
-													switch (current_instruction.OperandList[1].Type)
-													{
-														case OperandType::Label:
-														{
-															ProcessLabelOperand(1, 0xB);
-															break;
-														}
-														case OperandType::ImmediateValue:
-														{
-															ProcessAddressImmediateValueOperand(1, 0xB);
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::ImmediateValue:
-												{
-													ProcessAddressImmediateValueOperand(0, 0x1);
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Call:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Label:
-												{
-													ProcessLabelOperand(0, 0x2);
-													break;
-												}
-												case OperandType::ImmediateValue:
-												{
-													ProcessAddressImmediateValueOperand(0, 0x2);
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::SkipEqual:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													switch (current_instruction.OperandList[1].Type)
-													{
-														case OperandType::Register:
-														{
-															unsigned char reg2 = 0x0;
-															if (!ProcessRegisterOperand(1, reg2))
-															{
-																error = true;
-																error_type = ErrorType::InvalidRegister;
-																break;
-															}
-															ProgramData.push_back(0x50 | (reg1 & 0xF));
-															ProgramData.push_back(reg2 << 4);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-														case OperandType::ImmediateValue:
-														{
-															unsigned char value = Process8BitImmediateValueOperand(1);
-															if (error)
-															{
-																break;
-															}
-															ProgramData.push_back(0x30 | (reg1 & 0xF));
-															ProgramData.push_back(value);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::SkipNotEqual:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													switch (current_instruction.OperandList[1].Type)
-													{
-														case OperandType::Register:
-														{
-															unsigned char reg2 = 0x0;
-															if (!ProcessRegisterOperand(0, reg2))
-															{
-																error = true;
-																error_type = ErrorType::InvalidRegister;
-																break;
-															}
-															ProgramData.push_back(0x90 | (reg1 & 0xF));
-															ProgramData.push_back(reg2 << 4);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-														case OperandType::ImmediateValue:
-														{
-															unsigned char value = Process8BitImmediateValueOperand(1);
-															if (error)
-															{
-																break;
-															}
-															ProgramData.push_back(0x40 | (reg1 & 0xF));
-															ProgramData.push_back(value);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Load:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													switch (current_instruction.OperandList[1].Type)
-													{
-														case OperandType::Register:
-														{
-															unsigned char reg2 = 0x0;
-															if (!ProcessRegisterOperand(1, reg2))
-															{
-																error = true;
-																error_type = ErrorType::InvalidRegister;
-																break;
-															}
-															ProgramData.push_back(0x80 | (reg1 & 0xF));
-															ProgramData.push_back(reg2 << 4);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-														case OperandType::ImmediateValue:
-														{
-															unsigned char value = Process8BitImmediateValueOperand(1);
-															if (error)
-															{
-																break;
-															}
-															ProgramData.push_back(0x60 | (reg1 & 0xF));
-															ProgramData.push_back(value);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-														case OperandType::DelayTimer:
-														{
-															ProgramData.push_back(0xF0 | (reg1 & 0xF));
-															ProgramData.push_back(0x07);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-														case OperandType::Pointer:
-														{
-															std::string uptr_data;
-															for (size_t c = 0; c < current_instruction.OperandList[1].Data.size(); ++c)
-															{
-																uptr_data += toupper(static_cast<unsigned char>(current_instruction.OperandList[1].Data[c]));
-															}
-															if (uptr_data == "I")
-															{
-																ProgramData.push_back(0xF0 | (reg1 & 0xF));
-																ProgramData.push_back(0x65);
-																current_address += 2;
-																if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-																{
-																	error = true;
-																	error_type = ErrorType::Only4KBSupported;
-																	break;
-																}
-															}
-															break;
-														}
-														case OperandType::Key:
-														{
-															ProgramData.push_back(0xF0 | (reg1 & 0xF));
-															ProgramData.push_back(0x0A);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::AddressRegister:
-												{
-													switch (current_instruction.OperandList[1].Type)
-													{
-														case OperandType::Label:
-														{
-															ProcessLabelOperand(1, 0xA);
-															break;
-														}
-														case OperandType::ImmediateValue:
-														{
-															ProcessAddressImmediateValueOperand(1, 0xA);
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::DelayTimer:
-												{
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg = 0x0;
-														if (!ProcessRegisterOperand(1, reg))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0xF0 | (reg & 0xF));
-														ProgramData.push_back(0x15);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::SoundTimer:
-												{
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg = 0x0;
-														if (!ProcessRegisterOperand(1, reg))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0xF0 | (reg & 0xF));
-														ProgramData.push_back(0x18);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::Pointer:
-												{
-													std::string uptr_data;
-													for (size_t c = 0; c < current_instruction.OperandList[0].Data.size(); ++c)
-													{
-														uptr_data += toupper(static_cast<unsigned char>(current_instruction.OperandList[0].Data[c]));
-													}
-													if (uptr_data == "I")
-													{
-														if (current_instruction.OperandList[1].Type == OperandType::Register)
-														{
-															unsigned char reg = 0x0;
-															if (!ProcessRegisterOperand(1, reg))
-															{
-																error = true;
-																error_type = ErrorType::InvalidRegister;
-																break;
-															}
-															ProgramData.push_back(0xF0 | (reg & 0xF));
-															ProgramData.push_back(0x55);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-														}
-													}
-													break;
-												}
-												case OperandType::LoResFont:
-												{
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg = 0x0;
-														if (!ProcessRegisterOperand(1, reg))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0xF0 | (reg & 0xF));
-														ProgramData.push_back(0x29);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::BCD:
-												{
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg = 0x0;
-														if (!ProcessRegisterOperand(1, reg))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0xF0 | (reg & 0xF));
-														ProgramData.push_back(0x33);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Add:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													switch (current_instruction.OperandList[1].Type)
-													{
-														case OperandType::Register:
-														{
-															unsigned char reg2 = 0x0;
-															if (!ProcessRegisterOperand(1, reg2))
-															{
-																error = true;
-																error_type = ErrorType::InvalidRegister;
-																break;
-															}
-															ProgramData.push_back(0x80 | (reg1 & 0xF));
-															ProgramData.push_back((reg2 << 4) | 0x4);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-														case OperandType::ImmediateValue:
-														{
-															unsigned char value = Process8BitImmediateValueOperand(1);
-															if (error)
-															{
-																break;
-															}
-															ProgramData.push_back(0x70 | (reg1 & 0xF));
-															ProgramData.push_back(value);
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-																break;
-															}
-															break;
-														}
-													}
-													break;
-												}
-												case OperandType::AddressRegister:
-												{
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg = 0x0;
-														if (!ProcessRegisterOperand(1, reg))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0xF0 | (reg & 0xF));
-														ProgramData.push_back(0x1E);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Or:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0x1);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::And:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0x2);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Xor:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0x3);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Subtract:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0x5);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::ShiftRight:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidValue;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0x6);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::SubtractN:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if(!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0x7);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::ShiftLeft:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														ProgramData.push_back(0x80 | (reg1 & 0xF));
-														ProgramData.push_back((reg2 << 4) | 0xE);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Random:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg = 0x0;
-													if (!ProcessRegisterOperand(0, reg))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::ImmediateValue)
-													{
-														unsigned char value = Process8BitImmediateValueOperand(1);
-														if (error)
-														{
-															break;
-														}
-														ProgramData.push_back(0xC0 | (reg & 0xF));
-														ProgramData.push_back(value);
-														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-														{
-															error = true;
-															error_type = ErrorType::Only4KBSupported;
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::Draw:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg1 = 0x0;
-													if (!ProcessRegisterOperand(0, reg1))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													if (current_instruction.OperandList[1].Type == OperandType::Register)
-													{
-														unsigned char reg2 = 0x0;
-														if (!ProcessRegisterOperand(1, reg2))
-														{
-															error = true;
-															error_type = ErrorType::InvalidRegister;
-															break;
-														}
-														if (current_instruction.OperandList[2].Type == OperandType::ImmediateValue)
-														{
-															unsigned char height = Process8BitImmediateValueOperand(2);
-															if (error)
-															{
-																break;
-															}
-															ProgramData.push_back(0xD0 | (reg1 & 0xF));
-															ProgramData.push_back((reg2 << 4) | (height & 0xF));
-															current_address += 2;
-															if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-															{
-																error = true;
-																error_type = ErrorType::Only4KBSupported;
-															}
-															break;
-														}
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::SkipKeyPressed:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg = 0x0;
-													if (!ProcessRegisterOperand(0, reg))
-													{
-														break;
-													}
-													ProgramData.push_back(0xE0 | (reg & 0xF));
-													ProgramData.push_back(0x9E);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-														break;
-													}
-													break;
-												}
-											}
-											break;
-										}
-										case InstructionType::SkipKeyNotPressed:
-										{
-											if (!OperandCountCheck())
-											{
-												break;
-											}
-											switch (current_instruction.OperandList[0].Type)
-											{
-												case OperandType::None:
-												{
-													error = true;
-													error_type = ErrorType::InvalidValue;
-													break;
-												}
-												case OperandType::Register:
-												{
-													unsigned char reg = 0x0;
-													if (!ProcessRegisterOperand(0, reg))
-													{
-														error = true;
-														error_type = ErrorType::InvalidRegister;
-														break;
-													}
-													ProgramData.push_back(0xE0 | (reg & 0xF));
-													ProgramData.push_back(0xA1);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-														break;
-													}
-													break;
-												}
-											}
-											break;
-										}
-									}
 									break;
 								}
 								case TokenType::Extension:
@@ -2187,64 +1291,1389 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							{
 								error = true;
 								error_type = ErrorType::InvalidToken;
+								break;
+							}
+						}
+						if (token_type == TokenType::Instruction)
+						{
+							switch (current_instruction.Type)
+							{
+								case InstructionType::ScrollDown:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											unsigned char value = Process8BitImmediateValueOperand(0);
+											if (error)
+											{
+												break;
+											}
+											ProgramData.push_back(0x00);
+											ProgramData.push_back(0xC0 | (value & 0xF));
+											current_address += 2;
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::Only4KBSupported;
+												break;
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::ClearScreen:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xE0);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::Return:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xEE);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::ScrollRight:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xFB);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::ScrollLeft:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xFC);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::Exit:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xFD);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::Low:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xFE);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::High:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(0xFF);
+									current_address += 2;
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									{
+										error = true;
+										error_type = ErrorType::Only4KBSupported;
+										break;
+									}
+									break;
+								}
+								case InstructionType::Jump:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Label:
+										{
+											ProcessLabelOperand(0, 0x1);
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessRegisterOperand(0, reg))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (reg != 0x0 && CurrentExtension == ExtensionType::HyperCHIP64)
+											{
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0xB1);
+												current_address += 2;
+											}
+											switch (current_instruction.OperandList[1].Type)
+											{
+												case OperandType::Label:
+												{
+													ProcessLabelOperand(1, 0xB);
+													break;
+												}
+												case OperandType::ImmediateValue:
+												{
+													ProcessAddressImmediateValueOperand(1, 0xB);
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											ProcessAddressImmediateValueOperand(0, 0x1);
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Call:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Label:
+										{
+											ProcessLabelOperand(0, 0x2);
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											ProcessAddressImmediateValueOperand(0, 0x2);
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::SkipEqual:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											switch (current_instruction.OperandList[1].Type)
+											{
+												case OperandType::Register:
+												{
+													unsigned char reg2 = 0x0;
+													if (!ProcessRegisterOperand(1, reg2))
+													{
+														error = true;
+														error_type = ErrorType::InvalidRegister;
+														break;
+													}
+													ProgramData.push_back(0x50 | (reg1 & 0xF));
+													ProgramData.push_back(reg2 << 4);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+												case OperandType::ImmediateValue:
+												{
+													unsigned char value = Process8BitImmediateValueOperand(1);
+													if (error)
+													{
+														break;
+													}
+													ProgramData.push_back(0x30 | (reg1 & 0xF));
+													ProgramData.push_back(value);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::SkipNotEqual:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											switch (current_instruction.OperandList[1].Type)
+											{
+												case OperandType::Register:
+												{
+														unsigned char reg2 = 0x0;
+													if (!ProcessRegisterOperand(0, reg2))
+													{
+														error = true;
+														error_type = ErrorType::InvalidRegister;
+														break;
+													}
+													ProgramData.push_back(0x90 | (reg1 & 0xF));
+													ProgramData.push_back(reg2 << 4);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+													}
+												case OperandType::ImmediateValue:
+												{
+													unsigned char value = Process8BitImmediateValueOperand(1);
+													if (error)
+													{
+														break;
+													}
+													ProgramData.push_back(0x40 | (reg1 & 0xF));
+													ProgramData.push_back(value);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Load:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											switch (current_instruction.OperandList[1].Type)
+											{
+												case OperandType::Register:
+												{
+													unsigned char reg2 = 0x0;
+													if (!ProcessRegisterOperand(1, reg2))
+													{
+														error = true;
+														error_type = ErrorType::InvalidRegister;
+														break;
+													}
+													ProgramData.push_back(0x80 | (reg1 & 0xF));
+													ProgramData.push_back(reg2 << 4);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+												case OperandType::ImmediateValue:
+												{
+													unsigned char value = Process8BitImmediateValueOperand(1);
+													if (error)
+													{
+														break;
+													}
+													ProgramData.push_back(0x60 | (reg1 & 0xF));
+													ProgramData.push_back(value);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+												case OperandType::DelayTimer:
+												{
+													ProgramData.push_back(0xF0 | (reg1 & 0xF));
+													ProgramData.push_back(0x07);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+												case OperandType::Pointer:
+												{
+													std::string uptr_data;
+													for (size_t c = 0; c < current_instruction.OperandList[1].Data.size(); ++c)
+													{
+														uptr_data += toupper(static_cast<unsigned char>(current_instruction.OperandList[1].Data[c]));
+													}
+													if (uptr_data == "I")
+													{
+														ProgramData.push_back(0xF0 | (reg1 & 0xF));
+														ProgramData.push_back(0x65);
+														current_address += 2;
+														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+														{
+															error = true;
+															error_type = ErrorType::Only4KBSupported;
+															break;
+														}
+													}
+													break;
+												}
+												case OperandType::Key:
+												{
+													ProgramData.push_back(0xF0 | (reg1 & 0xF));
+													ProgramData.push_back(0x0A);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+												case OperandType::UserRPL:
+												{
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP10Required;
+														break;
+													}
+													ProgramData.push_back(0xF0 | (reg1 & 0xF));
+													ProgramData.push_back(0x85);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::AddressRegister:
+										{
+											switch (current_instruction.OperandList[1].Type)
+											{
+												case OperandType::Label:
+												{
+													ProcessLabelOperand(1, 0xA);
+													break;
+												}
+												case OperandType::ImmediateValue:
+												{
+													ProcessAddressImmediateValueOperand(1, 0xA);
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::DelayTimer:
+										{
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x15);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::SoundTimer:
+										{
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x18);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::Pointer:
+										{
+											std::string uptr_data;
+											for (size_t c = 0; c < current_instruction.OperandList[0].Data.size(); ++c)
+											{
+												uptr_data += toupper(static_cast<unsigned char>(current_instruction.OperandList[0].Data[c]));
+											}
+											if (uptr_data == "I")
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::Register)
+												{
+													unsigned char reg = 0x0;
+													if (!ProcessRegisterOperand(1, reg))
+													{
+														error = true;
+														error_type = ErrorType::InvalidRegister;
+														break;
+													}
+													ProgramData.push_back(0xF0 | (reg & 0xF));
+													ProgramData.push_back(0x55);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+												}
+											}
+											break;
+										}
+										case OperandType::LoResFont:
+										{
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x29);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::HiResFont:
+										{
+											if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::SuperCHIP11Required;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x30);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::BCD:
+										{
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x33);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::UserRPL:
+										{
+											if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::SuperCHIP10Required;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x75);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Add:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											switch (current_instruction.OperandList[1].Type)
+											{
+												case OperandType::Register:
+												{
+													unsigned char reg2 = 0x0;
+													if (!ProcessRegisterOperand(1, reg2))
+													{
+														error = true;
+														error_type = ErrorType::InvalidRegister;
+														break;
+													}
+													ProgramData.push_back(0x80 | (reg1 & 0xF));
+													ProgramData.push_back((reg2 << 4) | 0x4);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+												case OperandType::ImmediateValue:
+												{
+													unsigned char value = Process8BitImmediateValueOperand(1);
+													if (error)
+													{
+														break;
+													}
+													ProgramData.push_back(0x70 | (reg1 & 0xF));
+													ProgramData.push_back(value);
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+														break;
+													}
+													break;
+												}
+											}
+											break;
+										}
+										case OperandType::AddressRegister:
+										{
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg = 0x0;
+												if (!ProcessRegisterOperand(1, reg))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0xF0 | (reg & 0xF));
+												ProgramData.push_back(0x1E);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Or:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x1);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::And:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x2);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Xor:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x3);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Subtract:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x5);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::ShiftRight:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidValue;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x6);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::SubtractN:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if(!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x7);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::ShiftLeft:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0xE);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Random:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessRegisterOperand(0, reg))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::ImmediateValue)
+											{
+												unsigned char value = Process8BitImmediateValueOperand(1);
+												if (error)
+												{
+													break;
+												}
+												ProgramData.push_back(0xC0 | (reg & 0xF));
+												ProgramData.push_back(value);
+												current_address += 2;
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::Only4KBSupported;
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Draw:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												if (current_instruction.OperandList[2].Type == OperandType::ImmediateValue)
+												{
+													unsigned char height = Process8BitImmediateValueOperand(2);
+													if (error)
+													{
+														break;
+													}
+													ProgramData.push_back(0xD0 | (reg1 & 0xF));
+													ProgramData.push_back((reg2 << 4) | (height & 0xF));
+													current_address += 2;
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::Only4KBSupported;
+													}
+													break;
+												}
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::SkipKeyPressed:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessRegisterOperand(0, reg))
+											{
+												break;
+											}
+											ProgramData.push_back(0xE0 | (reg & 0xF));
+											ProgramData.push_back(0x9E);
+											current_address += 2;
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::Only4KBSupported;
+												break;
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::SkipKeyNotPressed:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessRegisterOperand(0, reg))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											ProgramData.push_back(0xE0 | (reg & 0xF));
+											ProgramData.push_back(0xA1);
+											current_address += 2;
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::Only4KBSupported;
+												break;
+											}
+											break;
+										}
+									}
+									break;
+								}
 							}
 						}
 						break;
 					}
 					default:
 					{
-						if (token.size() == 0)
+						if (!comment)
 						{
-							switch (token_type)
+							if (token.size() == 0)
 							{
-								case TokenType::Instruction:
+								switch (token_type)
 								{
-									if (isdigit(static_cast<unsigned char>(line_data[i])))
+									case TokenType::Instruction:
 									{
-										current_operand.Type = OperandType::ImmediateValue;
-									}
-									else if (isspace(static_cast<unsigned char>(line_data[i])))
-									{
+										if (isdigit(static_cast<unsigned char>(line_data[i])))
+										{
+											current_operand.Type = OperandType::ImmediateValue;
+										}
+										else if (isspace(static_cast<unsigned char>(line_data[i])))
+										{
+											break;
+										}
+										token += line_data[i];
 										break;
 									}
-									token += line_data[i];
-									break;
+									case TokenType::DataByte:
+									case TokenType::DataWord:
+									{
+										if (isspace(static_cast<unsigned char>(line_data[i])))
+										{
+											break;
+										}
+										token += line_data[i];
+										break;
+									}
+									default:
+									{
+										if (isdigit(static_cast<unsigned char>(line_data[i])))
+										{
+											error = true;
+											break;
+										}
+										else if (isspace(static_cast<unsigned char>(line_data[i])))
+										{
+											break;
+										}
+										token += line_data[i];
+										break;
+									}
 								}
-								case TokenType::DataByte:
-								case TokenType::DataWord:
-								{
-									if (isspace(static_cast<unsigned char>(line_data[i])))
-									{
-										break;
-									}
-									token += line_data[i];
-									break;
-								}
-								default:
-								{
-									if (isdigit(static_cast<unsigned char>(line_data[i])))
-									{
-										error = true;
-										break;
-									}
-									else if (isspace(static_cast<unsigned char>(line_data[i])))
-									{
-										break;
-									}
-									token += line_data[i];
-									break;
-								}
-							}
-						}
-						else
-						{
-							if (!pointer_mode || (current_operand.Type == OperandType::Pointer && pointer_mode))
-							{
-								token += line_data[i];
 							}
 							else
 							{
-								error = true;
+								if (!pointer_mode || (current_operand.Type == OperandType::Pointer && pointer_mode))
+								{
+									token += line_data[i];
+								}
+								else
+								{
+									error = true;
+								}
 							}
 						}
 						break;
@@ -2280,6 +2709,31 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									std::cout << "RET";
 									break;
 								}
+								case InstructionType::ScrollRight:
+								{
+									std::cout << "SCR";
+									break;
+								}
+								case InstructionType::ScrollLeft:
+								{
+									std::cout << "SCL";
+									break;
+								}
+								case InstructionType::Exit:
+								{
+									std::cout << "EXIT";
+									break;
+								}
+								case InstructionType::Low:
+								{
+									std::cout << "LOW";
+									break;
+								}
+								case InstructionType::High:
+								{
+									std::cout << "HIGH";
+									break;
+								}
 							}
 							std::cout << " does not support operands.\n";
 							break;
@@ -2288,6 +2742,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 						{
 							switch (current_instruction.Type)
 							{
+								case InstructionType::ScrollDown:
+								{
+									std::cout << "SCD";
+									break;
+								}
 								case InstructionType::Jump:
 								{
 									std::cout << "JP";
@@ -2375,47 +2834,17 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								}
 							}
 							std::cout << " only has " << current_instruction.OperandList.size() << " operands (needs at least " << current_instruction.OperandMinimum << ").\n";
-							/*
-							switch (current_instruction.Type)
-							{
-								case InstructionType::Jump:
-								case InstructionType::Call:
-								{
-									std::cout << "1";
-									break;
-								}
-								case InstructionType::SkipEqual:
-								case InstructionType::SkipNotEqual:
-								{
-									std::cout << "2";
-									break;
-								}
-								case InstructionType::Load:
-								{
-									std::cout << "2";
-									break;
-								}
-								case InstructionType::Add:
-								case InstructionType::Or:
-								case InstructionType::And:
-								case InstructionType::Xor:
-								case InstructionType::Subtract:
-								case InstructionType::ShiftRight:
-								case InstructionType::SubtractN:
-								case InstructionType::ShiftLeft:
-								{
-									std::cout << "2";
-									break;
-								}
-							}
-							std::cout << ").\n";
-							*/
 							break;
 						}
 						case ErrorType::TooManyOperands:
 						{
 							switch (current_instruction.Type)
 							{
+								case InstructionType::ScrollDown:
+								{
+									std::cout << "SCD";
+									break;
+								}
 								case InstructionType::Jump:
 								{
 									std::cout << "JP";
@@ -2503,41 +2932,6 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								}
 							}
 							std::cout << " has too many operands (" << current_instruction.OperandList.size() << ", supports up to " << current_instruction.OperandMaximum << ").\n";
-							/*
-							switch (current_instruction.Type)
-							{
-								case InstructionType::Jump:
-								{
-									std::cout << "2";
-									break;
-								}
-								case InstructionType::Call:
-								{
-									std::cout << "1";
-									break;
-								}
-								case InstructionType::SkipEqual:
-								case InstructionType::SkipNotEqual:
-								{
-									std::cout << "2";
-									break;
-								}
-								case InstructionType::Load:
-								{
-									std::cout << "2";
-									break;
-								}
-								case InstructionType::Add:
-								case InstructionType::Or:
-								case InstructionType::And:
-								case InstructionType::Xor:
-								{
-									std::cout << "2";
-									break;
-								}
-							}
-							std::cout << ").\n";
-							*/
 							break;
 						}
 						case ErrorType::InvalidValue:
@@ -2555,16 +2949,94 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							std::cout << "Current extension only supports up to 4KB (maxed at 0xFFF).\n";
 							break;
 						}
+						case ErrorType::SuperCHIP10Required:
+						{
+							switch (current_instruction.Type)
+							{
+								case InstructionType::Exit:
+								{
+									std::cout << "EXIT";
+									break;
+								}
+								case InstructionType::Low:
+								{
+									std::cout << "LOW";
+									break;
+								}
+								case InstructionType::High:
+								{
+									std::cout << "HIGH";
+									break;
+								}
+								case InstructionType::Load:
+								{
+									std::cout << "LD ";
+									if (current_instruction.OperandList.size() == 2)
+									{
+										switch (current_instruction.OperandList[0].Type)
+										{
+											case OperandType::UserRPL:
+											{
+												std::cout << "R, VX";
+												break;
+											}
+											case OperandType::Register:
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::UserRPL)
+												{
+													std::cout << "VX, R";
+												}
+												break;
+											}
+										}
+									}
+									break;
+								}
+							}
+							std::cout << " instruction requires using at least the SuperCHIP V1.0 extension to use.\n";
+							break;
+						}
+						case ErrorType::SuperCHIP11Required:
+						{
+							switch (current_instruction.Type)
+							{
+								case InstructionType::ScrollDown:
+								{
+									std::cout << "SCD";
+									break;
+								}
+								case InstructionType::ScrollRight:
+								{
+									std::cout << "SCR";
+									break;
+								}
+								case InstructionType::ScrollLeft:
+								{
+									std::cout << "SCL";
+									break;
+								}
+								case InstructionType::Load:
+								{
+									std::cout << "LD ";
+									if (current_instruction.OperandList.size() == 2)
+									{
+										if (current_instruction.OperandList[0].Type == OperandType::HiResFont)
+										{
+											std::cout << "HF, VX";
+										}
+									}
+									break;
+								}
+							}
+							std::cout << " instruction requires using at least the SuperCHIP V1.1 extension to use.\n";
+							break;
+						}
 						default:
 						{
 							std::cout << "Unknown Error\n";
 							break;
 						}
 					}
-					break;
-				}
-				else if (comment)
-				{
 					break;
 				}
 			}
