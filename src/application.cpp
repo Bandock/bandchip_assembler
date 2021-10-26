@@ -233,6 +233,27 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				return false;
 			};
+			auto ProcessAddressRegisterOffsetPointerOperand = [this, &current_instruction](unsigned char operand, unsigned char &reg)
+			{
+				std::string uptr_data = "";
+				for (size_t c = 0; c < current_instruction.OperandList[operand].Data.size(); ++c)
+				{
+					uptr_data += toupper(static_cast<unsigned char>(current_instruction.OperandList[operand].Data[c]));
+				}
+				for (auto r : RegisterList)
+				{
+					std::string ptr_reg_offstr = "I+" + r;
+					if (uptr_data == ptr_reg_offstr)
+					{
+						return true;
+					}
+					if (reg < 0xF)
+					{
+						++reg;
+					}
+				}
+				return false;
+			};
 			auto ProcessDataByte = [&token, &error, &error_type]()
 			{
 				std::regex hex("0x[a-fA-F0-9]{1,}");
@@ -392,6 +413,18 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													break;
 												}
 											}
+											else if (t == "SCU")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollUp;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::HyperCHIP64Required;
+													break;
+												}
+											}
 											else if (t == "CLS")
 											{
 												token_type = TokenType::Instruction;
@@ -494,7 +527,8 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											{
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Load;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												current_instruction.OperandMinimum = 2;
+												current_instruction.OperandMaximum = 3;
 											}
 											else if (t == "ADD")
 											{
@@ -537,6 +571,54 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::SubtractN;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+											}
+											else if (t == "ROR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::RotateRight;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::HyperCHIP64Required;
+													break;
+												}
+											}
+											else if (t == "ROL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::RotateLeft;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::HyperCHIP64Required;
+													break;
+												}
+											}
+											else if (t == "TEST")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Test;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::HyperCHIP64Required;
+													break;
+												}
+											}
+											else if (t == "NOT")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Not;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												{
+													error = true;
+													error_type = ErrorType::HyperCHIP64Required;
+													break;
+												}
 											}
 											else if (t == "SHL")
 											{
@@ -821,37 +903,25 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												error = true;
 												error_type = (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::SuperCHIP11Required : ErrorType::TooFewOperands;
 											}
+											else if (t == "SCU")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::ScrollUp;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+											}
 											else if (t == "CLS")
 											{
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::ClearScreen;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												/*
-												ProgramData.push_back(0x00);
-												ProgramData.push_back(0xE0);
-												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-												{
-													error = true;
-													error_type = ErrorType::Only4KBSupported;
-												}
-												*/
 											}
 											else if (t == "RET")
 											{
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Return;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												/*
-												ProgramData.push_back(0x00);
-												ProgramData.push_back(0xEE);
-												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-												{
-													error = true;
-													error_type = ErrorType::Only4KBSupported;
-												}
-												*/
 											}
 											else if (t == "SCR")
 											{
@@ -863,19 +933,6 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													error = true;
 													error_type = ErrorType::SuperCHIP11Required;
 												}
-												/*
-												else
-												{
-													ProgramData.push_back(0x00);
-													ProgramData.push_back(0xFB);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-													}
-												}
-												*/
 											}
 											else if (t == "SCL")
 											{
@@ -887,19 +944,6 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													error = true;
 													error_type = ErrorType::SuperCHIP11Required;
 												}
-												/*
-												else
-												{
-													ProgramData.push_back(0x00);
-													ProgramData.push_back(0xFC);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-													}
-												}
-												*/
 											}
 											else if (t == "EXIT")
 											{
@@ -911,19 +955,6 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													error = true;
 													error_type = ErrorType::SuperCHIP10Required;
 												}
-												/*
-												else
-												{
-													ProgramData.push_back(0x00);
-													ProgramData.push_back(0xFD);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-													}
-												}
-												*/
 											}
 											else if (t == "LOW")
 											{
@@ -935,19 +966,6 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													error = true;
 													error_type = ErrorType::SuperCHIP10Required;
 												}
-												/*
-												else
-												{
-													ProgramData.push_back(0x00);
-													ProgramData.push_back(0xFE);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-													}
-												}
-												*/
 											}
 											else if (t == "HIGH")
 											{
@@ -959,19 +977,6 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													error = true;
 													error_type = ErrorType::SuperCHIP10Required;
 												}
-												/*
-												else
-												{
-													ProgramData.push_back(0x00);
-													ProgramData.push_back(0xFF);
-													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-													{
-														error = true;
-														error_type = ErrorType::Only4KBSupported;
-													}
-												}
-												*/
 											}
 											else if (t == "JP")
 											{
@@ -1011,7 +1016,8 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											{
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Load;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												current_instruction.OperandMinimum = 2;
+												current_instruction.OperandMaximum = 3;
 												error = true;
 												error_type = ErrorType::TooFewOperands;
 											}
@@ -1065,10 +1071,43 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											}
 											else if (t == "SUBN")
 											{
+												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::SubtractN;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
 												error = true;
 												error_type = ErrorType::TooFewOperands;
+											}
+											else if (t == "ROR")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::RotateRight;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+											}
+											else if (t == "ROL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::RotateLeft;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+											}
+											else if (t == "TEST")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Test;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+											}
+											else if (t == "NOT")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Not;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
 											}
 											else if (t == "SHL")
 											{
@@ -1143,7 +1182,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											}
 											else if (u_token == "ST")
 											{
-													current_operand.Type = OperandType::SoundTimer;
+												current_operand.Type = OperandType::SoundTimer;
 											}
 											else if (u_token == "K")
 											{
@@ -1328,6 +1367,35 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												error_type = ErrorType::Only4KBSupported;
 												break;
 											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::ScrollUp:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											unsigned char value = Process8BitImmediateValueOperand(0);
+											if (error)
+											{
+												break;
+											}
+											ProgramData.push_back(0x00);
+											ProgramData.push_back(0xD0 | (value & 0xF));
+											current_address += 2;
 											break;
 										}
 									}
@@ -1520,6 +1588,26 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											ProcessAddressImmediateValueOperand(0, 0x1);
 											break;
 										}
+										case OperandType::Pointer:
+										{
+											if (CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::HyperCHIP64Required;
+												break;
+											}
+											unsigned char reg = 0x0;
+											if (!ProcessAddressRegisterOffsetPointerOperand(0, reg))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											ProgramData.push_back(0xF0 | (reg & 0xF));
+											ProgramData.push_back(0x20);
+											current_address += 2;
+											break;
+										}
 									}
 									break;
 								}
@@ -1545,6 +1633,20 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 										case OperandType::ImmediateValue:
 										{
 											ProcessAddressImmediateValueOperand(0, 0x2);
+											break;
+										}
+										case OperandType::Pointer:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessAddressRegisterOffsetPointerOperand(0, reg))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											ProgramData.push_back(0xF0 | (reg & 0xF));
+											ProgramData.push_back(0x21);
+											current_address += 2;
 											break;
 										}
 									}
@@ -1722,8 +1824,33 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 														error_type = ErrorType::InvalidRegister;
 														break;
 													}
-													ProgramData.push_back(0x80 | (reg1 & 0xF));
-													ProgramData.push_back(reg2 << 4);
+													if (current_instruction.OperandList.size() == 2)
+													{
+														ProgramData.push_back(0x80 | (reg1 & 0xF));
+														ProgramData.push_back(reg2 << 4);
+													}
+													else
+													{
+														if (CurrentExtension != ExtensionType::HyperCHIP64)
+														{
+															error = true;
+															error_type = ErrorType::HyperCHIP64Required;
+															break;
+														}
+														if (current_instruction.OperandList[2].Type == OperandType::Pointer)
+														{
+															std::string uptr_data;
+															for (size_t c = 0; c < current_instruction.OperandList[2].Data.size(); ++c)
+															{
+																uptr_data += toupper(static_cast<unsigned char>(current_instruction.OperandList[2].Data[c]));
+															}
+															if (uptr_data == "I")
+															{
+																ProgramData.push_back(0x50 | (reg1 & 0xF));
+																ProgramData.push_back((reg2 << 4) | 0x3);
+															}
+														}
+													}
 													current_address += 2;
 													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
@@ -1834,6 +1961,26 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProcessAddressImmediateValueOperand(1, 0xA);
 													break;
 												}
+												case OperandType::Pointer:
+												{
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+													unsigned char reg = 0x0;
+													if (!ProcessAddressRegisterOffsetPointerOperand(1, reg))
+													{
+														error = true;
+														error_type = ErrorType::InvalidRegister;
+														break;
+													}
+													ProgramData.push_back(0xF0 | (reg & 0xF));
+													ProgramData.push_back(0xA2);
+													current_address += 2;
+													break;
+												}
 											}
 											break;
 										}
@@ -1894,15 +2041,39 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											{
 												if (current_instruction.OperandList[1].Type == OperandType::Register)
 												{
-													unsigned char reg = 0x0;
-													if (!ProcessRegisterOperand(1, reg))
+													unsigned char reg1 = 0x0;
+													if (!ProcessRegisterOperand(1, reg1))
 													{
 														error = true;
 														error_type = ErrorType::InvalidRegister;
 														break;
 													}
-													ProgramData.push_back(0xF0 | (reg & 0xF));
-													ProgramData.push_back(0x55);
+													if (current_instruction.OperandList.size() == 2)
+													{
+														ProgramData.push_back(0xF0 | (reg1 & 0xF));
+														ProgramData.push_back(0x55);
+													}
+													else
+													{
+														if (current_instruction.OperandList[2].Type == OperandType::Register)
+														{
+															if (CurrentExtension != ExtensionType::HyperCHIP64)
+															{
+																error = true;
+																error_type = ErrorType::HyperCHIP64Required;
+																break;
+															}
+															unsigned char reg2 = 0x0;
+															if (!ProcessRegisterOperand(2, reg2))
+															{
+																error = true;
+																error_type = ErrorType::InvalidRegister;
+																break;
+															}
+															ProgramData.push_back(0x50 | (reg1 & 0xF));
+															ProgramData.push_back((reg2 << 4) | 0x2);
+														}
+													}
 													current_address += 2;
 													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
@@ -2394,6 +2565,170 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									}
 									break;
 								}
+								case InstructionType::RotateRight:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x8);
+												current_address += 2;
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::RotateLeft:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0x9);
+												current_address += 2;
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Test:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidValue;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0xA);
+												current_address += 2;
+											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Not:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg1 = 0x0;
+											if (!ProcessRegisterOperand(0, reg1))
+											{
+												error = true;
+												error_type = ErrorType::InvalidValue;
+												break;
+											}
+											if (current_instruction.OperandList[1].Type == OperandType::Register)
+											{
+												unsigned char reg2 = 0x0;
+												if (!ProcessRegisterOperand(1, reg2))
+												{
+													error = true;
+													error_type = ErrorType::InvalidRegister;
+													break;
+												}
+												ProgramData.push_back(0x80 | (reg1 & 0xF));
+												ProgramData.push_back((reg2 << 4) | 0xB);
+												current_address += 2;
+											}
+											break;
+										}
+									}
+									break;
+								}
 								case InstructionType::ShiftLeft:
 								{
 									if (!OperandCountCheck())
@@ -2747,6 +3082,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									std::cout << "SCD";
 									break;
 								}
+								case InstructionType::ScrollUp:
+								{
+									std::cout << "SCU";
+									break;
+								}
 								case InstructionType::Jump:
 								{
 									std::cout << "JP";
@@ -2805,6 +3145,26 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								case InstructionType::SubtractN:
 								{
 									std::cout << "SUBN";
+									break;
+								}
+								case InstructionType::RotateRight:
+								{
+									std::cout << "ROR";
+									break;
+								}
+								case InstructionType::RotateLeft:
+								{
+									std::cout << "ROL";
+									break;
+								}
+								case InstructionType::Test:
+								{
+									std::cout << "TEST";
+									break;
+								}
+								case InstructionType::Not:
+								{
+									std::cout << "NOT";
 									break;
 								}
 								case InstructionType::ShiftLeft:
@@ -2845,6 +3205,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									std::cout << "SCD";
 									break;
 								}
+								case InstructionType::ScrollUp:
+								{
+									std::cout << "SCU";
+									break;
+								}
 								case InstructionType::Jump:
 								{
 									std::cout << "JP";
@@ -2903,6 +3268,26 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								case InstructionType::SubtractN:
 								{
 									std::cout << "SUBN";
+									break;
+								}
+								case InstructionType::RotateRight:
+								{
+									std::cout << "ROR";
+									break;
+								}
+								case InstructionType::RotateLeft:
+								{
+									std::cout << "ROL";
+									break;
+								}
+								case InstructionType::Test:
+								{
+									std::cout << "TEST";
+									break;
+								}
+								case InstructionType::Not:
+								{
+									std::cout << "NOT";
 									break;
 								}
 								case InstructionType::ShiftLeft:
@@ -3029,6 +3414,104 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								}
 							}
 							std::cout << " instruction requires using at least the SuperCHIP V1.1 extension to use.\n";
+							break;
+						}
+						case ErrorType::HyperCHIP64Required:
+						{
+							switch (current_instruction.Type)
+							{
+								case InstructionType::ScrollUp:
+								{
+									std::cout << "SCU";
+									break;
+								}
+								case InstructionType::RotateRight:
+								{
+									std::cout << "ROR";
+									break;
+								}
+								case InstructionType::RotateLeft:
+								{
+									std::cout << "ROL";
+									break;
+								}
+								case InstructionType::Test:
+								{
+									std::cout << "TEST";
+									break;
+								}
+								case InstructionType::Not:
+								{
+									std::cout << "NOT";
+									break;
+								}
+								case InstructionType::Jump:
+								{
+									std::cout << "JP ";
+									if (current_instruction.OperandList.size() == 1)
+									{
+										if (current_instruction.OperandList[0].Type == OperandType::Pointer)
+										{
+											std::cout << "[I + VX]";
+										}
+									}
+									break;
+								}
+								case InstructionType::Call:
+								{
+									std::cout << "CALL ";
+									if (current_instruction.OperandList.size() == 1)
+									{
+										if (current_instruction.OperandList[0].Type == OperandType::Pointer)
+										{
+											std::cout << "[I + VX]";
+										}
+									}
+									break;
+								}
+								case InstructionType::Load:
+								{
+									if (current_instruction.OperandList.size() >= 2 && current_instruction.OperandList.size() <= 3)
+									{
+										std::cout << "LD ";
+										switch (current_instruction.OperandList[0].Type)
+										{
+											case OperandType::Register:
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::Register)
+												{
+													if (current_instruction.OperandList[2].Type == OperandType::Pointer)
+													{
+														std::cout << "VX, VY, [I]";
+													}
+												}
+												break;
+											}
+											case OperandType::AddressRegister:
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::Pointer)
+												{
+													std::cout << "I, [I + VX]";
+												}
+												break;
+											}
+											case OperandType::Pointer:
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::Register)
+												{
+													if (current_instruction.OperandList[2].Type == OperandType::Register)
+													{
+														std::cout << "[I], VX, VY";
+													}
+												}
+												break;
+											}
+										}
+									}
+									break;
+								}
+							}
+							std::cout << " instruction requires using at least the HyperCHIP-64 extension to use.\n";
 							break;
 						}
 						default:
