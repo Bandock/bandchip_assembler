@@ -62,6 +62,7 @@ namespace BandCHIP_Assembler
 		std::string Name;
 		size_t LineNumber;
 		unsigned short Address;
+		bool IsInstruction;
 		bool AbsoluteAddressExtended;
 	};
 

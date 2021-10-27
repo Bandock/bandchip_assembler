@@ -120,7 +120,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				if (!label_found)
 				{
-					UnresolvedReferenceList.push_back({ std::move(current_instruction.OperandList[operand].Data), current_line_number, static_cast<unsigned short>(current_address - 0x200), (CurrentExtension == ExtensionType::HyperCHIP64) ? true : false });
+					UnresolvedReferenceList.push_back({ std::move(current_instruction.OperandList[operand].Data), current_line_number, static_cast<unsigned short>(current_address - 0x200), true, (CurrentExtension == ExtensionType::HyperCHIP64) ? true : false });
 					if (CurrentExtension == ExtensionType::HyperCHIP64)
 					{
 						ProgramData.push_back(0xF0);
@@ -130,7 +130,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					ProgramData.push_back((opcode & 0xF) << 4);
 					ProgramData.push_back(0x00);
 					current_address += 2;
-					if (current_address> 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+					if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
 					{
 						error = true;
 						error_type = ErrorType::Only4KBSupported;
@@ -301,50 +301,79 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				return static_cast<unsigned char>(value & 0xFF);
 			};
-			auto ProcessDataWord = [&token, &error, &error_type]()
+			auto ProcessDataWord = [this, &token, &error, &error_type]()
 			{
-				std::regex hex("0x[a-fA-F0-9]{1,}");
-				std::regex bin("0b[0-1]{1,16}");
-				std::regex dec("[0-9]{1,}");
-				std::smatch match;
 				unsigned short value = 0;
-				if (std::regex_search(token, match, hex))
+				if (isdigit(static_cast<unsigned char>(token[0])))
 				{
-					if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
+					std::regex hex("0x[a-fA-F0-9]{1,}");
+					std::regex bin("0b[0-1]{1,16}");
+					std::regex dec("[0-9]{1,}");
+					std::smatch match;
+					if (std::regex_search(token, match, hex))
 					{
-						error = true;
-						error_type = ErrorType::InvalidValue;
-						return static_cast<unsigned short>(0);
-					}
-					std::istringstream hex_str(match.str());
-					hex_str >> std::hex >> value;
-				}
-				else if (std::regex_search(token, match, bin))
-				{
-					if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
-					{
-						error = true;
-						error_type = ErrorType::InvalidValue;
-						return static_cast<unsigned short>(0);
-					}
-					for (size_t c = 0; c < match.str().size() - 2; ++c)
-					{
-						if (match.str()[2 + c] == '1')
+						if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
 						{
-							value |= (0x8000 >> (15 - ((match.str().size() - 3) - c)));
+							error = true;
+							error_type = ErrorType::InvalidValue;
+							return static_cast<unsigned short>(0);
+						}
+						std::istringstream hex_str(match.str());
+						hex_str >> std::hex >> value;
+					}
+					else if (std::regex_search(token, match, bin))
+					{
+						if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
+						{
+							error = true;
+							error_type = ErrorType::InvalidValue;
+							return static_cast<unsigned short>(0);
+						}
+						for (size_t c = 0; c < match.str().size() - 2; ++c)
+						{
+							if (match.str()[2 + c] == '1')
+							{
+								value |= (0x8000 >> (15 - ((match.str().size() - 3) - c)));
+							}
 						}
 					}
-				}
-				else if (std::regex_search(token, match, dec))
-				{
-					if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
+					else if (std::regex_search(token, match, dec))
 					{
-						error = true;
-						error_type = ErrorType::InvalidValue;
-						return static_cast<unsigned short>(0);
+						if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
+						{
+							error = true;
+							error_type = ErrorType::InvalidValue;
+							return static_cast<unsigned short>(0);
+						}
+						std::istringstream dec_str(match.str());
+						dec_str >> value;
 					}
-					std::istringstream dec_str(match.str());
-					dec_str >> value;
+				}
+				else
+				{
+					bool symbol_found = false;
+					for (auto s : SymbolTable)
+					{
+						if (s.Type == SymbolType::Label)
+						{
+							if (token == s.Name)
+							{
+								symbol_found = true;
+								if (s.Location > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+								{
+									error = true;
+									error_type = ErrorType::Only4KBSupported;
+									return static_cast<unsigned short>(0);
+								}
+								value = s.Location;
+								break;
+							}
+						}
+					}
+					if (!symbol_found)
+					{
+						UnresolvedReferenceList.push_back({ std::move(token), current_line_number, static_cast<unsigned short>((current_address + ((align && ProgramData.size() % 2 != 0) ? 1 : 0)) - 0x200), false, false });
+					}
 				}
 				return value;
 			};
@@ -3535,14 +3564,22 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					if (u.Name == s.Name)
 					{
 						resolved = true;
-						unsigned short offset = 0;
-						if (u.AbsoluteAddressExtended)
+						if (u.IsInstruction)
 						{
-							ProgramData[u.Address] |= (s.Location >> 12);
-							offset += 2;
+							unsigned short offset = 0;
+							if (u.AbsoluteAddressExtended)
+							{
+								ProgramData[u.Address] |= (s.Location >> 12);
+								offset += 2;
+							}
+							ProgramData[u.Address + offset] |= ((s.Location & 0xF00) >> 8);
+							ProgramData[u.Address + offset + 1] = (s.Location & 0xFF);
 						}
-						ProgramData[u.Address + offset] |= ((s.Location & 0xF00) >> 8);
-						ProgramData[u.Address + offset + 1] = (s.Location & 0xFF);
+						else
+						{
+							ProgramData[u.Address] = (s.Location >> 8);
+							ProgramData[u.Address + 1] = (s.Location & 0xFF);
+						}
 						break;
 					}
 				}
