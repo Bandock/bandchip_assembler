@@ -62,6 +62,8 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 			size_t characters_read = input_file.gcount();
 			bool error = false;
 			bool comment = false;
+			bool string_mode = false;
+			bool escape_mode = false;
 			bool pointer_mode = false;
 			ErrorType error_type = ErrorType::NoError;
 			TokenType token_type = TokenType::None;
@@ -254,6 +256,36 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				return false;
 			};
+			auto ProcessOrigin = [&token, &error, &error_type]()
+			{
+				std::regex hex("0x[a-fA-F0-8]{1,}");
+				std::regex dec("[0-9]{1,}");
+				std::smatch match;
+				unsigned short address = 0;
+				if (std::regex_search(token, match, hex))
+				{
+					if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
+					{
+						error = true;
+						error_type = ErrorType::InvalidValue;
+						return static_cast<unsigned short>(0);
+					}
+					std::istringstream hex_str(match.str());
+					hex_str >> std::hex >> address;
+				}
+				else if (std::regex_search(token, match, dec))
+				{
+					if (match.prefix().str().size() > 0 || match.suffix().str().size() > 0)
+					{
+						error = true;
+						error_type = ErrorType::InvalidValue;
+						return static_cast<unsigned short>(0);
+					}
+					std::istringstream dec_str(match.str());
+					dec_str >> address;
+				}
+				return address;
+			};
 			auto ProcessDataByte = [&token, &error, &error_type]()
 			{
 				std::regex hex("0x[a-fA-F0-9]{1,}");
@@ -377,318 +409,450 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				return value;
 			};
+			auto ProcessStringDataByte = [this, &error, &error_type](unsigned char data)
+			{
+				ProgramData.push_back(data);
+				++current_address;
+				if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+				{
+					error = true;
+					error_type = ErrorType::Only4KBSupported;
+				}
+			};
 			for (size_t i = 0; i < characters_read; ++i)
 			{
 				switch (line_data[i])
 				{
-					case ';':
+					case '\\':
 					{
-						if (!comment)
+						if (string_mode)
 						{
-							if (!pointer_mode)
+							if (!escape_mode)
 							{
-								comment = true;
+								escape_mode = true;
 							}
 							else
 							{
-								error = true;
+								switch (token_type)
+								{
+									case TokenType::Origin:
+									{
+										token += line_data[i];
+									}
+									case TokenType::DataByte:
+									{
+										ProcessStringDataByte(line_data[i]);
+										break;
+									}
+								}
+								escape_mode = false;
 							}
-							break;
 						}
+						break;
 					}
-					case ' ':
+					case ';':
 					{
-						if (token.size() > 0 && !comment && !pointer_mode)
+						if (!string_mode)
+						{
+							if (!comment)
+							{
+								if (!pointer_mode)
+								{
+									comment = true;
+								}
+								else
+								{
+									error = true;
+								}
+							}
+						}
+						else
 						{
 							switch (token_type)
 							{
-								case TokenType::None:
+								case TokenType::DataByte:
 								{
-									bool valid_token = false;
-									for (size_t c = 0; c < token.size(); ++c)
+									ProcessStringDataByte(line_data[i]);
+									break;
+								}
+							}
+							if (escape_mode)
+							{
+								escape_mode = false;
+							}
+						}
+						break;
+					}
+					case ' ':
+					{
+						if (!string_mode)
+						{
+							if (token.size() > 0 && !comment && !pointer_mode)
+							{
+								switch (token_type)
+								{
+									case TokenType::None:
 									{
-										u_token += toupper(static_cast<unsigned char>(token[c]));
-									}
-									for (auto t : TokenList)
-									{
-										if (u_token == t)
+										bool valid_token = false;
+										for (size_t c = 0; c < token.size(); ++c)
 										{
-											valid_token = true;
-											if (t == "EXTENSION")
+											u_token += toupper(static_cast<unsigned char>(token[c]));
+										}
+										for (auto t : TokenList)
+										{
+											if (u_token == t)
 											{
-												token_type = TokenType::Extension;
-											}
-											else if (t == "ALIGN")
-											{
-												token_type = TokenType::Align;
-											}
-											else if (t == "DB")
-											{
-												token_type = TokenType::DataByte;
-											}
-											else if (t == "DW")
-											{
-												token_type = TokenType::DataWord;
-											}
-											else if (t == "SCD")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ScrollDown;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												valid_token = true;
+												if (t == "EXTENSION")
 												{
-													error = true;
-													error_type = ErrorType::SuperCHIP11Required;
-													break;
+													token_type = TokenType::Extension;
 												}
-											}
-											else if (t == "SCU")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ScrollUp;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "ALIGN")
 												{
-													error = true;
-													error_type = ErrorType::HyperCHIP64Required;
-													break;
+													token_type = TokenType::Align;
 												}
-											}
-											else if (t == "CLS")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ClearScreen;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-											}
-											else if (t == "RET")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Return;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-											}
-											else if (t == "SCR")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ScrollRight;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "ORG")
 												{
-													error = true;
-													error_type = ErrorType::SuperCHIP11Required;
-													break;
+													token_type = TokenType::Origin;
 												}
-											}
-											else if (t == "SCL")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ScrollLeft;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "INCBIN")
 												{
-													error = true;
-													error_type = ErrorType::SuperCHIP11Required;
-													break;
+													token_type = TokenType::BinaryInclude;
 												}
-											}
-											else if (t == "EXIT")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Exit;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "DB")
 												{
-													error = true;
-													error_type = ErrorType::SuperCHIP10Required;
-													break;
+													token_type = TokenType::DataByte;
 												}
-											}
-											else if (t == "LOW")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Low;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "DW")
 												{
-													error = true;
-													error_type = ErrorType::SuperCHIP10Required;
-													break;
+													token_type = TokenType::DataWord;
 												}
-											}
-											else if (t == "HIGH")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::High;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "SCD")
 												{
-													error = true;
-													error_type = ErrorType::SuperCHIP10Required;
-													break;
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ScrollDown;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP11Required;
+														break;
+													}
 												}
-											}
-											else if (t == "JP")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Jump;
-												current_instruction.OperandMinimum = 1;
-												current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "CALL")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Call;
-												current_instruction.OperandMinimum = 1;
-												current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "SE")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::SkipEqual;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "SNE")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::SkipNotEqual;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "LD")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Load;
-												current_instruction.OperandMinimum = 2;
-												current_instruction.OperandMaximum = 3;
-											}
-											else if (t == "ADD")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Add;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "OR")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Or;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "AND")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::And;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "XOR")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Xor;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "SUB")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Subtract;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "SHR")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ShiftRight;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "SUBN")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::SubtractN;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "ROR")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::RotateRight;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "SCU")
 												{
-													error = true;
-													error_type = ErrorType::HyperCHIP64Required;
-													break;
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ScrollUp;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
 												}
-											}
-											else if (t == "ROL")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::RotateLeft;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "CLS")
 												{
-													error = true;
-													error_type = ErrorType::HyperCHIP64Required;
-													break;
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ClearScreen;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
 												}
-											}
-											else if (t == "TEST")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Test;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "RET")
 												{
-													error = true;
-													error_type = ErrorType::HyperCHIP64Required;
-													break;
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Return;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
 												}
-											}
-											else if (t == "NOT")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Not;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-												if (CurrentExtension != ExtensionType::HyperCHIP64)
+												else if (t == "SCR")
 												{
-													error = true;
-													error_type = ErrorType::HyperCHIP64Required;
-													break;
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ScrollRight;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP11Required;
+														break;
+													}
 												}
+												else if (t == "SCL")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ScrollLeft;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP11Required;
+														break;
+													}
+												}
+												else if (t == "EXIT")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Exit;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP10Required;
+														break;
+													}
+												}
+												else if (t == "LOW")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Low;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP10Required;
+														break;
+													}
+												}
+												else if (t == "HIGH")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::High;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::SuperCHIP10Required;
+														break;
+													}
+												}
+												else if (t == "JP")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Jump;
+													current_instruction.OperandMinimum = 1;
+													current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "CALL")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Call;
+													current_instruction.OperandMinimum = 1;
+													current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "SE")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::SkipEqual;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "SNE")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::SkipNotEqual;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "LD")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Load;
+													current_instruction.OperandMinimum = 2;
+													current_instruction.OperandMaximum = 3;
+												}
+												else if (t == "ADD")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Add;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "OR")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Or;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "AND")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::And;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "XOR")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Xor;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "SUB")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Subtract;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "SHR")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ShiftRight;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "SUBN")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::SubtractN;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "ROR")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::RotateRight;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
+												else if (t == "ROL")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::RotateLeft;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
+												else if (t == "TEST")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Test;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
+												else if (t == "NOT")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Not;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
+												else if (t == "SHL")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::ShiftLeft;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "RND")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Random;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
+												}
+												else if (t == "DRW")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Draw;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 3;
+												}
+												else if (t == "SKP")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::SkipKeyPressed;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												}
+												else if (t == "SKNP")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::SkipKeyNotPressed;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												}
+												token = "";
+												u_token = "";
 											}
-											else if (t == "SHL")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::ShiftLeft;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "RND")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Random;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 2;
-											}
-											else if (t == "DRW")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::Draw;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 3;
-											}
-											else if (t == "SKP")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::SkipKeyPressed;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-											}
-											else if (t == "SKNP")
-											{
-												token_type = TokenType::Instruction;
-												current_instruction.Type = InstructionType::SkipKeyNotPressed;
-												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-											}
-											token = "";
-											u_token = "";
+										}
+										if (!valid_token)
+										{
+											error = true;
+											error_type = ErrorType::InvalidToken;
+										}
+										break;
+									}
+								}
+							}
+						}
+						else
+						{
+							switch (token_type)
+							{
+								case TokenType::BinaryInclude:
+								{
+									token += line_data[i];
+								}
+								case TokenType::DataByte:
+								{
+									ProcessStringDataByte(line_data[i]);
+									break;
+								}
+							}
+							if (escape_mode)
+							{
+								escape_mode = false;
+							}
+						}
+						break;
+					}
+					case '"':
+					{
+						if (!comment)
+						{
+							if (!string_mode)
+							{
+								switch (token_type)
+								{
+									case TokenType::BinaryInclude:
+									{
+										if (token.size() > 0)
+										{
+											error = true;
+											break;
+										}
+										string_mode = true;
+										break;
+									}
+									case TokenType::DataByte:
+									{
+										string_mode = true;
+										break;
+									}
+								}
+							}
+							else
+							{
+								if (!escape_mode)
+								{
+									string_mode = false;
+								}
+								else
+								{
+									switch (token_type)
+									{
+										case TokenType::DataByte:
+										{
+											ProcessStringDataByte(line_data[i]);
+											break;
 										}
 									}
-									if (!valid_token)
-									{
-										error = true;
-										error_type = ErrorType::InvalidToken;
-									}
-									break;
+									escape_mode = false;
 								}
 							}
 						}
@@ -698,12 +862,19 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					{
 						if (!comment)
 						{
-							if (current_operand.Type == OperandType::None)
+							if (!string_mode)
 							{
-								if (!pointer_mode)
+								if (current_operand.Type == OperandType::None)
 								{
-									current_operand.Type = OperandType::Pointer;
-									pointer_mode = true;
+									if (!pointer_mode)
+									{
+										current_operand.Type = OperandType::Pointer;
+										pointer_mode = true;
+									}
+									else
+									{
+										error = true;
+									}
 								}
 								else
 								{
@@ -712,7 +883,18 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							}
 							else
 							{
-								error = true;
+								switch (token_type)
+								{
+									case TokenType::DataByte:
+									{
+										ProcessStringDataByte(line_data[i]);
+										break;
+									}
+								}
+								if (escape_mode)
+								{
+									escape_mode = false;
+								}
 							}
 						}
 						break;
@@ -721,11 +903,18 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					{
 						if (!comment)
 						{
-							if (current_operand.Type == OperandType::Pointer)
+							if (!string_mode)
 							{
-								if (pointer_mode)
+								if (current_operand.Type == OperandType::Pointer)
 								{
-									pointer_mode = false;
+									if (pointer_mode)
+									{
+										pointer_mode = false;
+									}
+									else
+									{
+										error = true;
+									}
 								}
 								else
 								{
@@ -734,7 +923,18 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							}
 							else
 							{
-								error = true;
+								switch (token_type)
+								{
+									case TokenType::DataByte:
+									{
+										ProcessStringDataByte(line_data[i]);
+										break;
+									}
+								}
+								if (escape_mode)
+								{
+									escape_mode = false;
+								}
 							}
 						}
 						break;
@@ -806,31 +1006,54 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									u_token = "";
 									break;
 								}
-								case TokenType::DataByte:
+								case TokenType::BinaryInclude:
 								{
-									unsigned char value = ProcessDataByte();
-									if (error)
+									if (!string_mode)
 									{
+										error = true;
 										break;
 									}
-									ProgramData.push_back(value);
-									if (align && ProgramData.size() % 2 != 0)
+									break;
+								}
+								case TokenType::DataByte:
+								{
+									if (!string_mode)
 									{
-										ProgramData.push_back(0x00);
-										current_address += 2;
+										if (token.size() > 0)
+										{
+											unsigned char value = ProcessDataByte();
+											if (error)
+											{
+												break;
+											}
+											ProgramData.push_back(value);
+											if (align && ProgramData.size() % 2 != 0)
+											{
+												ProgramData.push_back(0x00);
+												current_address += 2;
+											}
+											else
+											{
+												++current_address;
+											}
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											{
+												error = true;
+												error_type = ErrorType::Only4KBSupported;
+												break;
+											}
+											token = "";
+											u_token = "";
+										}
 									}
 									else
 									{
-										++current_address;
+										ProcessStringDataByte(line_data[i]);
+										if (escape_mode)
+										{
+											escape_mode = false;
+										}
 									}
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
-									{
-										error = true;
-										error_type = ErrorType::Only4KBSupported;
-										break;
-									}
-									token = "";
-									u_token = "";
 									break;
 								}
 								case TokenType::DataWord:
@@ -877,37 +1100,65 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 					{
 						if (!comment)
 						{
-							for (size_t c = 0; c < token.size(); ++c)
+							if (!string_mode)
 							{
-								u_token += toupper(static_cast<unsigned char>(token[c]));
-							}
-							for (auto t : TokenList)
-							{
-								if (u_token == t)
+								for (size_t c = 0; c < token.size(); ++c)
+								{
+									u_token += toupper(static_cast<unsigned char>(token[c]));
+								}
+								for (auto t : TokenList)
+								{
+									if (u_token == t)
+									{
+										error = true;
+										error_type = ErrorType::ReservedToken;
+										break;
+									}
+								}
+								if (error)
+								{
+									break;
+								}
+								if (u_token == "I")
 								{
 									error = true;
 									error_type = ErrorType::ReservedToken;
 									break;
 								}
+								Symbol Label = { std::move(token), SymbolType::Label, current_address };
+								SymbolTable.push_back(Label);
+								token = "";
 							}
-							if (error)
+							else
 							{
-								break;
+								switch (token_type)
+								{
+									case TokenType::BinaryInclude:
+									{
+										token += line_data[i];
+										break;
+									}
+									case TokenType::DataByte:
+									{
+										ProcessStringDataByte(line_data[i]);
+										break;
+									}
+								}
+								if (escape_mode)
+								{
+									escape_mode = false;
+								}
 							}
-							if (u_token == "I")
-							{
-								error = true;
-								error_type = ErrorType::ReservedToken;
-								break;
-							}
-							Symbol Label = { std::move(token), SymbolType::Label, current_address };
-							SymbolTable.push_back(Label);
-							token = "";
 						}
 						break;
 					}
 					case '\0':
 					{
+						if (string_mode)
+						{
+							error = true;
+							break;
+						}
 						if (token.size() > 0)
 						{
 							bool valid_token = false;
@@ -1295,29 +1546,91 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									}
 									break;
 								}
-								case TokenType::DataByte:
+								case TokenType::Origin:
 								{
 									valid_token = true;
-									unsigned char value = ProcessDataByte();
+									unsigned short address = ProcessOrigin();
 									if (error)
 									{
 										break;
 									}
-									ProgramData.push_back(value);
-									if (align && ProgramData.size() % 2 != 0)
+									if (address < 0x200)
+									{
+										error = true;
+										error_type = ErrorType::ReservedAddress;
+										break;
+									}
+									if (address < current_address)
+									{
+										error = true;
+										error_type = ErrorType::BelowCurrentAddress;
+										break;
+									}
+									current_address = address;
+									for (size_t a = ProgramData.size(); a < current_address - 0x200; ++a)
 									{
 										ProgramData.push_back(0x00);
-										current_address += 2;
-									}
-									else
-									{
-										++current_address;
 									}
 									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
 										break;
+									}
+									break;
+								}
+								case TokenType::BinaryInclude:
+								{
+									valid_token = true;
+									std::ifstream binary_file(token, std::ios::binary);
+									if (binary_file.fail())
+									{
+										error = true;
+										error_type = ErrorType::BinaryFileDoesNotExist;
+										break;
+									}
+									binary_file.seekg(0, std::ios::end);
+									size_t file_size = binary_file.tellg();
+									binary_file.seekg(0, std::ios::beg);
+									for (size_t c = 0; c < file_size; ++c)
+									{
+										ProgramData.push_back(binary_file.get());
+										++current_address;
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										{
+											error = true;
+											error_type = ErrorType::Only4KBSupported;
+											break;
+										}
+									}
+									break;
+								}
+								case TokenType::DataByte:
+								{
+									valid_token = true;
+									if (token.size() > 0)
+									{
+										unsigned char value = ProcessDataByte();
+										if (error)
+										{
+											break;
+										}
+										ProgramData.push_back(value);
+										if (align && ProgramData.size() % 2 != 0)
+										{
+											ProgramData.push_back(0x00);
+											current_address += 2;
+										}
+										else
+										{
+											++current_address;
+										}
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										{
+											error = true;
+											error_type = ErrorType::Only4KBSupported;
+											break;
+										}
 									}
 									break;
 								}
@@ -3002,14 +3315,45 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 										token += line_data[i];
 										break;
 									}
-									case TokenType::DataByte:
-									case TokenType::DataWord:
+									case TokenType::Origin:
 									{
 										if (isspace(static_cast<unsigned char>(line_data[i])))
 										{
 											break;
 										}
 										token += line_data[i];
+										break;
+									}
+									case TokenType::DataByte:
+									{
+										if (!string_mode)
+										{
+											if (isspace(static_cast<unsigned char>(line_data[i])))
+											{
+												break;
+											}
+											token += line_data[i];
+										}
+										else
+										{
+											ProcessStringDataByte(line_data[i]);
+											if (escape_mode)
+											{
+												escape_mode = false;
+											}
+										}
+										break;
+									}
+									case TokenType::DataWord:
+									{
+										if (!string_mode)
+										{
+											if (isspace(static_cast<unsigned char>(line_data[i])))
+											{
+												break;
+											}
+											token += line_data[i];
+										}
 										break;
 									}
 									default:
@@ -3358,6 +3702,16 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							std::cout << "Invalid Register\n";
 							break;
 						}
+						case ErrorType::ReservedAddress:
+						{
+							std::cout << "Addresses 0x000-0x1FF are reserved.\n";
+							break;
+						}
+						case ErrorType::BelowCurrentAddress:
+						{
+							std::cout << "Attempting to the set the address below the current address.\n";
+							break;
+						}
 						case ErrorType::Only4KBSupported:
 						{
 							std::cout << "Current extension only supports up to 4KB (maxed at 0xFFF).\n";
@@ -3541,6 +3895,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								}
 							}
 							std::cout << " instruction requires using at least the HyperCHIP-64 extension to use.\n";
+							break;
+						}
+						case ErrorType::BinaryFileDoesNotExist:
+						{
+							std::cout << '\'' << token << "' does not exist.\n";
 							break;
 						}
 						default:

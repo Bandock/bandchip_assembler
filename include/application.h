@@ -12,10 +12,10 @@ namespace BandCHIP_Assembler
 	enum class SymbolType { Label };
 	enum class ErrorType { 
 		NoError, ReservedToken, InvalidToken, NoOperandsSupported, TooFewOperands, TooManyOperands,
-		InvalidValue, InvalidRegister, Only4KBSupported, SuperCHIP10Required, SuperCHIP11Required,
-		HyperCHIP64Required
+		InvalidValue, InvalidRegister, ReservedAddress, BelowCurrentAddress, Only4KBSupported,
+		SuperCHIP10Required, SuperCHIP11Required, HyperCHIP64Required, BinaryFileDoesNotExist
        	};
-	enum class TokenType { None, Instruction, Extension, Align, DataByte, DataWord };
+	enum class TokenType { None, Instruction, Extension, Align, Origin, BinaryInclude, DataByte, DataWord };
 	enum class InstructionType {
 		None, ClearScreen, Return, Jump, Call, SkipEqual, SkipNotEqual, Load, Add, Or, And, Xor,
 		Subtract, ShiftRight, SubtractN, ShiftLeft, Random, Draw, SkipKeyPressed, SkipKeyNotPressed,
@@ -77,12 +77,12 @@ namespace BandCHIP_Assembler
 			unsigned short current_address;
 			size_t error_count;
 			std::vector<std::string> Args;
-			const std::array<std::string, 34> TokenList = {
-				"EXTENSION", "ALIGN", "DB", "DW", "CLS", "RET", "JP",
-				"CALL", "SE", "SNE", "LD", "ADD", "OR", "AND", "XOR",
-				"SUB", "SHR", "SUBN", "SHL", "RND", "DRW", "SKP", "SKNP",
-				"SCD", "SCR", "SCL", "EXIT", "LOW", "HIGH", "SCU", "ROR",
-				"ROL", "TEST", "NOT"
+			const std::array<std::string, 36> TokenList = {
+				"EXTENSION", "ALIGN", "ORG", "INCBIN", "DB", "DW", "CLS",
+				"RET", "JP", "CALL", "SE", "SNE", "LD", "ADD", "OR", "AND",
+				"XOR", "SUB", "SHR", "SUBN", "SHL", "RND", "DRW", "SKP",
+				"SKNP", "SCD", "SCR", "SCL", "EXIT", "LOW", "HIGH", "SCU",
+				"ROR", "ROL", "TEST", "NOT"
 			};
 			const std::array<std::string, 4> ExtensionList = {
 				"CHIP8", "SCHIP10", "SCHIP11", "HCHIP64"
@@ -99,7 +99,7 @@ namespace BandCHIP_Assembler
 			std::vector<Symbol> SymbolTable;
 			std::vector<UnresolvedReferenceData> UnresolvedReferenceList;
 			std::vector<unsigned char> ProgramData;
-			const VersionData Version = { 0, 3 };
+			const VersionData Version = { 0, 4 };
 			int retcode;
 	};
 }

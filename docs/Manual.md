@@ -1,4 +1,4 @@
-# BandCHIP Assembler Manual (Version 0.3)
+# BandCHIP Assembler Manual (Version 0.4)
 
 ## Getting Started
 Run the program, using the following syntax:
@@ -94,8 +94,10 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 ## Keywords
 |Keyword |Description |
 |--------|------------|
-|DB|Data byte, which can be used to specify byte data.|
-|DW|Data word, which can be used to specify word data.  It is in big-endian form.|
+|ORG|Sets the address at the current line of code.  Should not be less than 0x200 (reserved) and the current address.|
+|INCBIN|Includes binary data from the specified file.  Must be a string and file must exist.|
+|DB|Data byte, which can be used to specify byte data.  Commas are used to add additional data in a single line.  Strings in double quotes can be used to define data.|
+|DW|Data word, which can be used to specify word data.  Commas are used to add additional data in a single line.  You can use labels as values as they're already word-sized.  It is in big-endian form.|
 
 ## Comment Support
 Comments are supported by the use of semicolons.
