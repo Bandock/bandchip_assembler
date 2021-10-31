@@ -97,7 +97,16 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							label_found = true;
 							if (s.Location > 0xFFF)
 							{
-								if (CurrentExtension != ExtensionType::HyperCHIP64)
+								if (CurrentExtension == ExtensionType::XOCHIP && opcode == 0xA)
+								{
+									ProgramData.push_back(0xF0);
+									ProgramData.push_back(0x00);
+									ProgramData.push_back(s.Location >> 8);
+									ProgramData.push_back(s.Location & 0xFF);
+									current_address += 4;
+									return;
+								}
+								else if (CurrentExtension != ExtensionType::HyperCHIP64)
 								{
 									error = true;
 									error_type = ErrorType::Only4KBSupported;
@@ -110,7 +119,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							ProgramData.push_back(((opcode & 0xF) << 4) | ((s.Location & 0xF00) >> 8));
 							ProgramData.push_back(s.Location & 0xFF);
 							current_address += 2;
-							if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+							if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 							{
 								error = true;
 								error_type = ErrorType::Only4KBSupported;
@@ -122,8 +131,17 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				if (!label_found)
 				{
-					UnresolvedReferenceList.push_back({ std::move(current_instruction.OperandList[operand].Data), current_line_number, static_cast<unsigned short>(current_address - 0x200), true, (CurrentExtension == ExtensionType::HyperCHIP64) ? true : false });
-					if (CurrentExtension == ExtensionType::HyperCHIP64)
+					UnresolvedReferenceList.push_back({ std::move(current_instruction.OperandList[operand].Data), current_line_number, static_cast<unsigned short>(current_address - 0x200), true, (CurrentExtension == ExtensionType::XOCHIP || CurrentExtension == ExtensionType::HyperCHIP64) ? true : false });
+					if (CurrentExtension == ExtensionType::XOCHIP && opcode == 0xA)
+					{
+						ProgramData.push_back(0xF0);
+						ProgramData.push_back(0x00);
+						ProgramData.push_back(0x00);
+						ProgramData.push_back(0x00);
+						current_address += 4;
+						return;
+					}
+					else if (CurrentExtension == ExtensionType::HyperCHIP64)
 					{
 						ProgramData.push_back(0xF0);
 						ProgramData.push_back(0xB0);
@@ -170,7 +188,16 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 				}
 				if (address > 0xFFF)
 				{
-					if (CurrentExtension != ExtensionType::HyperCHIP64)
+					if (CurrentExtension == ExtensionType::XOCHIP && opcode == 0xA)
+					{
+						ProgramData.push_back(0xF0);
+						ProgramData.push_back(0x00);
+						ProgramData.push_back(address >> 8);
+						ProgramData.push_back(address & 0xFF);
+						current_address += 2;
+						return;
+					}
+					else if (CurrentExtension != ExtensionType::HyperCHIP64)
 					{
 						error = true;
 						error_type = ErrorType::Only4KBSupported;
@@ -391,7 +418,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							if (token == s.Name)
 							{
 								symbol_found = true;
-								if (s.Location > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+								if (s.Location > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 								{
 									error = true;
 									error_type = ErrorType::Only4KBSupported;
@@ -413,7 +440,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 			{
 				ProgramData.push_back(data);
 				++current_address;
-				if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+				if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 				{
 					error = true;
 					error_type = ErrorType::Only4KBSupported;
@@ -532,7 +559,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::ScrollDown;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP11Required;
@@ -544,10 +571,10 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::ScrollUp;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
-														error_type = ErrorType::HyperCHIP64Required;
+														error_type = ErrorType::XOCHIPRequired;
 														break;
 													}
 												}
@@ -568,7 +595,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::ScrollRight;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP11Required;
@@ -580,7 +607,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::ScrollLeft;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP11Required;
@@ -592,7 +619,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::Exit;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP10Required;
@@ -604,7 +631,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::Low;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP10Required;
@@ -616,7 +643,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::High;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP10Required;
@@ -775,6 +802,42 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::SkipKeyNotPressed;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												}
+												else if (t == "PLANE")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Plane;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::XOCHIP)
+													{
+														error = true;
+														error_type = ErrorType::XOCHIPRequired;
+														break;
+													}
+												}
+												else if (t == "AUDIO")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Audio;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+													if (CurrentExtension != ExtensionType::XOCHIP)
+													{
+														error = true;
+														error_type = ErrorType::XOCHIPRequired;
+														break;
+													}
+												}
+												else if (t == "PITCH")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Pitch;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::XOCHIP)
+													{
+														error = true;
+														error_type = ErrorType::XOCHIPRequired;
+														break;
+													}
 												}
 												token = "";
 												u_token = "";
@@ -1036,7 +1099,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											{
 												++current_address;
 											}
-											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 											{
 												error = true;
 												error_type = ErrorType::Only4KBSupported;
@@ -1067,7 +1130,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									{
 										ProgramData.push_back(0x00);
 										++current_address;
-										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 										{
 											error = true;
 											error_type = ErrorType::Only4KBSupported;
@@ -1077,7 +1140,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(static_cast<unsigned char>(value >> 8));
 									ProgramData.push_back(static_cast<unsigned char>(value & 0xFF));
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1181,7 +1244,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												current_instruction.Type = InstructionType::ScrollDown;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
 												error = true;
-												error_type = (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::SuperCHIP11Required : ErrorType::TooFewOperands;
+												error_type = (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::SuperCHIP11Required : ErrorType::TooFewOperands;
 											}
 											else if (t == "SCU")
 											{
@@ -1189,7 +1252,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												current_instruction.Type = InstructionType::ScrollUp;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
 												error = true;
-												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+												error_type = (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
 											}
 											else if (t == "CLS")
 											{
@@ -1208,7 +1271,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::ScrollRight;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::SuperCHIP11Required;
@@ -1219,7 +1282,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::ScrollLeft;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::SuperCHIP11Required;
@@ -1230,7 +1293,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Exit;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::SuperCHIP10Required;
@@ -1241,7 +1304,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Low;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::SuperCHIP10Required;
@@ -1252,7 +1315,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::High;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::SuperCHIP10Required;
@@ -1429,6 +1492,33 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												error = true;
 												error_type = ErrorType::TooFewOperands;
 											}
+											else if (t == "PLANE")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Plane;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::XOCHIP) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
+											}
+											else if (t == "AUDIO")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Audio;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
+												if (CurrentExtension != ExtensionType::XOCHIP)
+												{
+													error = true;
+													error_type = ErrorType::XOCHIPRequired;
+												}
+											}
+											else if (t == "PITCH")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Pitch;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::XOCHIP) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
+											}
 											break;
 										}
 									}
@@ -1516,6 +1606,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												CurrentExtension = ExtensionType::SuperCHIP11;
 												std::cout << "Using the SuperCHIP V1.1 extension.\n";
 											}
+											else if (e == "XOCHIP")
+											{
+												CurrentExtension = ExtensionType::XOCHIP;
+												std::cout << "Using the XO-CHIP extension.\n";
+											}
 											else if (e == "HCHIP64")
 											{
 												CurrentExtension = ExtensionType::HyperCHIP64;
@@ -1571,7 +1666,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									{
 										ProgramData.push_back(0x00);
 									}
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1596,7 +1691,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									{
 										ProgramData.push_back(binary_file.get());
 										++current_address;
-										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 										{
 											error = true;
 											error_type = ErrorType::Only4KBSupported;
@@ -1625,7 +1720,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 										{
 											++current_address;
 										}
-										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 										{
 											error = true;
 											error_type = ErrorType::Only4KBSupported;
@@ -1646,7 +1741,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									{
 										ProgramData.push_back(0x00);
 										++current_address;
-										if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+										if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 										{
 											error = true;
 											error_type = ErrorType::Only4KBSupported;
@@ -1656,7 +1751,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(static_cast<unsigned char>(value >> 8));
 									ProgramData.push_back(static_cast<unsigned char>(value & 0xFF));
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1703,7 +1798,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											ProgramData.push_back(0x00);
 											ProgramData.push_back(0xC0 | (value & 0xF));
 											current_address += 2;
-											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 											{
 												error = true;
 												error_type = ErrorType::Only4KBSupported;
@@ -1754,7 +1849,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xE0);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1773,7 +1868,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xEE);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1792,7 +1887,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xFB);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1811,7 +1906,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xFC);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1830,7 +1925,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xFD);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1849,7 +1944,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xFE);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -1868,7 +1963,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									ProgramData.push_back(0x00);
 									ProgramData.push_back(0xFF);
 									current_address += 2;
-									if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+									if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 									{
 										error = true;
 										error_type = ErrorType::Only4KBSupported;
@@ -2031,7 +2126,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x50 | (reg1 & 0xF));
 													ProgramData.push_back(reg2 << 4);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2049,7 +2144,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x30 | (reg1 & 0xF));
 													ProgramData.push_back(value);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2100,14 +2195,14 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x90 | (reg1 & 0xF));
 													ProgramData.push_back(reg2 << 4);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
 														break;
 													}
 													break;
-													}
+												}
 												case OperandType::ImmediateValue:
 												{
 													unsigned char value = Process8BitImmediateValueOperand(1);
@@ -2118,7 +2213,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x40 | (reg1 & 0xF));
 													ProgramData.push_back(value);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2173,10 +2268,10 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													}
 													else
 													{
-														if (CurrentExtension != ExtensionType::HyperCHIP64)
+														if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 														{
 															error = true;
-															error_type = ErrorType::HyperCHIP64Required;
+															error_type = ErrorType::XOCHIPRequired;
 															break;
 														}
 														if (current_instruction.OperandList[2].Type == OperandType::Pointer)
@@ -2194,7 +2289,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 														}
 													}
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2212,7 +2307,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x60 | (reg1 & 0xF));
 													ProgramData.push_back(value);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2225,7 +2320,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0xF0 | (reg1 & 0xF));
 													ProgramData.push_back(0x07);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2245,7 +2340,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 														ProgramData.push_back(0xF0 | (reg1 & 0xF));
 														ProgramData.push_back(0x65);
 														current_address += 2;
-														if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+														if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 														{
 															error = true;
 															error_type = ErrorType::Only4KBSupported;
@@ -2259,7 +2354,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0xF0 | (reg1 & 0xF));
 													ProgramData.push_back(0x0A);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2269,7 +2364,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												}
 												case OperandType::UserRPL:
 												{
-													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)														
 													{
 														error = true;
 														error_type = ErrorType::SuperCHIP10Required;
@@ -2278,7 +2373,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0xF0 | (reg1 & 0xF));
 													ProgramData.push_back(0x85);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2340,7 +2435,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x15);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2363,7 +2458,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x18);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2399,10 +2494,10 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													{
 														if (current_instruction.OperandList[2].Type == OperandType::Register)
 														{
-															if (CurrentExtension != ExtensionType::HyperCHIP64)
+															if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 															{
 																error = true;
-																error_type = ErrorType::HyperCHIP64Required;
+																error_type = ErrorType::XOCHIPRequired;
 																break;
 															}
 															unsigned char reg2 = 0x0;
@@ -2417,7 +2512,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 														}
 													}
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2441,7 +2536,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x29);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2452,7 +2547,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 										}
 										case OperandType::HiResFont:
 										{
-											if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+											if (CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 											{
 												error = true;
 												error_type = ErrorType::SuperCHIP11Required;
@@ -2470,7 +2565,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x30);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2493,7 +2588,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x33);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2504,7 +2599,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 										}
 										case OperandType::UserRPL:
 										{
-											if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::HyperCHIP64)
+											if (CurrentExtension != ExtensionType::SuperCHIP10 && CurrentExtension != ExtensionType::SuperCHIP11 && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 											{
 												error = true;
 												error_type = ErrorType::SuperCHIP10Required;
@@ -2522,7 +2617,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x75);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2570,7 +2665,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x80 | (reg1 & 0xF));
 													ProgramData.push_back((reg2 << 4) | 0x4);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2588,7 +2683,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0x70 | (reg1 & 0xF));
 													ProgramData.push_back(value);
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -2613,7 +2708,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0xF0 | (reg & 0xF));
 												ProgramData.push_back(0x1E);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2660,7 +2755,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0x80 | (reg1 & 0xF));
 												ProgramData.push_back((reg2 << 4) | 0x1);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2707,7 +2802,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0x80 | (reg1 & 0xF));
 												ProgramData.push_back((reg2 << 4) | 0x2);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2754,7 +2849,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0x80 | (reg1 & 0xF));
 												ProgramData.push_back((reg2 << 4) | 0x3);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2801,7 +2896,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0x80 | (reg1 & 0xF));
 												ProgramData.push_back((reg2 << 4) | 0x5);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2848,7 +2943,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0x80 | (reg1 & 0xF));
 												ProgramData.push_back((reg2 << 4) | 0x6);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::Only4KBSupported;
@@ -2895,13 +2990,84 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												ProgramData.push_back(0x80 | (reg1 & 0xF));
 												ProgramData.push_back((reg2 << 4) | 0x7);
 												current_address += 2;
-												if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+												if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::InvalidRegister;
 													break;
 												}
 											}
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Plane:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											unsigned char value = Process8BitImmediateValueOperand(0);
+											if (error)
+											{
+												break;
+											}
+											ProgramData.push_back(0xF0 | (value & 0xF));
+											ProgramData.push_back(0x01);
+											current_address += 2;
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Audio:
+								{
+									if (current_instruction.OperandList.size() > 0)
+									{
+										error = true;
+										error_type = ErrorType::NoOperandsSupported;
+										break;
+									}
+									ProgramData.push_back(0xF0);
+									ProgramData.push_back(0x02);
+									current_address += 2;
+									break;
+								}
+								case InstructionType::Pitch:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessRegisterOperand(0, reg))
+											{
+												break;
+											}
+											ProgramData.push_back(0xF0 | (reg & 0xF));
+											ProgramData.push_back(0x3A);
+											current_address += 2;
 											break;
 										}
 									}
@@ -3205,7 +3371,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													ProgramData.push_back(0xD0 | (reg1 & 0xF));
 													ProgramData.push_back((reg2 << 4) | (height & 0xF));
 													current_address += 2;
-													if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+													if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::Only4KBSupported;
@@ -3242,7 +3408,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											ProgramData.push_back(0xE0 | (reg & 0xF));
 											ProgramData.push_back(0x9E);
 											current_address += 2;
-											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 											{
 												error = true;
 												error_type = ErrorType::Only4KBSupported;
@@ -3279,7 +3445,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											ProgramData.push_back(0xE0 | (reg & 0xF));
 											ProgramData.push_back(0xA1);
 											current_address += 2;
-											if (current_address > 0xFFF && CurrentExtension != ExtensionType::HyperCHIP64)
+											if (current_address > 0xFFF && CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 											{
 												error = true;
 												error_type = ErrorType::Only4KBSupported;
@@ -3442,6 +3608,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									std::cout << "HIGH";
 									break;
 								}
+								case InstructionType::Audio:
+								{
+									std::cout << "AUDIO";
+									break;
+								}
 							}
 							std::cout << " does not support operands.\n";
 							break;
@@ -3518,6 +3689,16 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								case InstructionType::SubtractN:
 								{
 									std::cout << "SUBN";
+									break;
+								}
+								case InstructionType::Plane:
+								{
+									std::cout << "PLANE";
+									break;
+								}
+								case InstructionType::Pitch:
+								{
+									std::cout << "PITCH";
 									break;
 								}
 								case InstructionType::RotateRight:
@@ -3641,6 +3822,16 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								case InstructionType::SubtractN:
 								{
 									std::cout << "SUBN";
+									break;
+								}
+								case InstructionType::Plane:
+								{
+									std::cout << "PLANE";
+									break;
+								}
+								case InstructionType::Pitch:
+								{
+									std::cout << "PITCH";
 									break;
 								}
 								case InstructionType::RotateRight:
@@ -3799,7 +3990,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 							std::cout << " instruction requires using at least the SuperCHIP V1.1 extension to use.\n";
 							break;
 						}
-						case ErrorType::HyperCHIP64Required:
+						case ErrorType::XOCHIPRequired:
 						{
 							switch (current_instruction.Type)
 							{
@@ -3808,6 +3999,62 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									std::cout << "SCU";
 									break;
 								}
+								case InstructionType::Load:
+								{
+									if (current_instruction.OperandList.size() >= 2 && current_instruction.OperandList.size() <= 3)
+									{
+										std::cout << "LD ";
+										switch (current_instruction.OperandList[0].Type)
+										{
+											case OperandType::Register:
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::Register)
+												{
+													if (current_instruction.OperandList[2].Type == OperandType::Pointer)
+													{
+														std::cout << "VX, VY, [I]";
+													}
+												}
+												break;
+											}
+											case OperandType::Pointer:
+											{
+												if (current_instruction.OperandList[1].Type == OperandType::Register)
+												{
+													if (current_instruction.OperandList[2].Type == OperandType::Register)
+													{
+														std::cout << "[I], VX, VY";
+													}
+												}
+												break;
+											}
+										}
+									}
+									break;
+								}
+								case InstructionType::Plane:
+								{
+									std::cout << "PLANE";
+									break;
+								}
+								case InstructionType::Audio:
+								{
+									std::cout << "AUDIO";
+									break;
+								}
+								case InstructionType::Pitch:
+								{
+									std::cout << "PITCH";
+									break;
+								}
+							}
+							std::cout << " requires using at least the XO-CHIP extension to use.\n";
+							break;
+						}
+						case ErrorType::HyperCHIP64Required:
+						{
+							switch (current_instruction.Type)
+							{
 								case InstructionType::RotateRight:
 								{
 									std::cout << "ROR";
@@ -3859,33 +4106,11 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 										std::cout << "LD ";
 										switch (current_instruction.OperandList[0].Type)
 										{
-											case OperandType::Register:
-											{
-												if (current_instruction.OperandList[1].Type == OperandType::Register)
-												{
-													if (current_instruction.OperandList[2].Type == OperandType::Pointer)
-													{
-														std::cout << "VX, VY, [I]";
-													}
-												}
-												break;
-											}
 											case OperandType::AddressRegister:
 											{
 												if (current_instruction.OperandList[1].Type == OperandType::Pointer)
 												{
 													std::cout << "I, [I + VX]";
-												}
-												break;
-											}
-											case OperandType::Pointer:
-											{
-												if (current_instruction.OperandList[1].Type == OperandType::Register)
-												{
-													if (current_instruction.OperandList[2].Type == OperandType::Register)
-													{
-														std::cout << "[I], VX, VY";
-													}
 												}
 												break;
 											}
