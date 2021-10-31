@@ -1,4 +1,4 @@
-# BandCHIP Assembler Manual (Version 0.5)
+# BandCHIP Assembler Manual (Version 0.6)
 
 ## Getting Started
 Run the program, using the following syntax:
@@ -7,6 +7,12 @@ bandchip_assembler <input> -o <output>
 ```
 Be aware that this version of the BandCHIP Assembler only supports one input file.  As long the input
 file contains valid CHIP-8 assembly language instructions, it should work fine.
+
+## Output Type Support
+|Output Type |Description |
+|------------|------------|
+|BINARY|Produces a raw binary file.|
+|HEXASCIISTRING|Produces a text file in hexadecimal ASCII string form.|
 
 ## Extension Support
 |Extension |Description |Memory Limit |
@@ -22,6 +28,7 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |------------|------------|--------|
 |ALIGN|Sets the memory alignment.|On (Word-Aligned/2 Byte), Off|
 |EXTENSION|Sets the extension to use.|CHIP8, SCHIP10, SCHIP11, XOCHIP, HCHIP64|
+|OUTPUT|Sets the output type.|BINARY, HEXASCIISTRING|
 
 ## Instructions
 |Opcode |Instruction |Description |Supported Extensions |

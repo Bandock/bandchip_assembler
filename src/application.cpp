@@ -1,4 +1,5 @@
 #include "../include/application.h"
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <cstring>
@@ -10,7 +11,7 @@ std::ostream &BandCHIP_Assembler::operator<<(std::ostream &out, const BandCHIP_A
 	return out;
 }
 
-BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_line_number(1), current_address(0x200), error_count(0), CurrentExtension(BandCHIP_Assembler::ExtensionType::CHIP8), align(true), retcode(0)
+BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_line_number(1), current_address(0x200), error_count(0), CurrentOutputType(BandCHIP_Assembler::OutputType::Binary), CurrentExtension(BandCHIP_Assembler::ExtensionType::CHIP8), align(true), retcode(0)
 {
 	std::cout << "BandCHIP Assembler " << Version << " - By Joshua Moss\n\n";
 	if (argc > 1)
@@ -530,6 +531,10 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											if (u_token == t)
 											{
 												valid_token = true;
+												if (t == "OUTPUT")
+												{
+													token_type = TokenType::Output;
+												}
 												if (t == "EXTENSION")
 												{
 													token_type = TokenType::Extension;
@@ -1582,6 +1587,28 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									}
 									current_operand.Data = std::move(token);
 									current_instruction.OperandList.push_back(current_operand);
+									break;
+								}
+								case TokenType::Output:
+								{
+									for (auto o : OutputTypeList)
+									{
+										if (u_token == o)
+										{
+											valid_token = true;
+											if (o == "BINARY")
+											{
+												CurrentOutputType = OutputType::Binary;
+												std::cout << "Using binary output mode.\n";
+											}
+											else if (o == "HEXASCIISTRING")
+											{
+												CurrentOutputType = OutputType::HexASCIIString;
+												std::cout << "Using Hex ASCII String output mode.\n";
+											}
+											break;
+										}
+									}
 									break;
 								}
 								case TokenType::Extension:
@@ -4176,7 +4203,25 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 		}
 		if (error_count == 0)
 		{
-			output_file.write(reinterpret_cast<char *>(ProgramData.data()), ProgramData.size());
+			switch (CurrentOutputType)
+			{
+				case OutputType::Binary:
+				{
+					output_file.write(reinterpret_cast<char *>(ProgramData.data()), ProgramData.size());
+					break;
+				}
+				case OutputType::HexASCIIString:
+				{
+					std::ostringstream hex_data;
+					hex_data << std::hex;
+					for (size_t c = 0; c < ProgramData.size(); ++c)
+					{
+						hex_data << std::setfill('0') << std::setw(2) << static_cast<unsigned short>(ProgramData[c]);
+					}
+					output_file.write(hex_data.str().c_str(), hex_data.str().size());
+					break;
+				}
+			}
 			std::cout << "Assembly successful!\n";
 		}
 		std::cout << '\n' << "There " << ((error_count != 1) ? "were " : "was ") << error_count << " error" << ((error_count != 1) ? "s.\n" : ".\n");
