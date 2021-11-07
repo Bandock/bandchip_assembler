@@ -1,4 +1,4 @@
-# BandCHIP Assembler Manual (Version 0.6)
+# BandCHIP Assembler Manual (Version 0.7)
 
 ## Getting Started
 Run the program, using the following syntax:
@@ -33,12 +33,12 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 ## Instructions
 |Opcode |Instruction |Description |Supported Extensions |
 |-------|------------|------------|---------------------|
-|00CN|SCD|Scrolls the screen down by N pixels.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
-|00DN|SCU|Scrolls the screen up by N pixels.|XO-CHIP, HyperCHIP-64|
-|00E0|CLS|Clears the screen.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
+|00CN|SCD|Scrolls the screen (bit plane in some extensions) down by N pixels.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
+|00DN|SCU|Scrolls the screen (bit plane in some extensions) up by N pixels.|XO-CHIP, HyperCHIP-64|
+|00E0|CLS|Clears the screen (bit plane in some extensions).|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |00EE|RET|Returns from the subroutine.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
-|00FB|SCR|Scrolls the screen to the right by 4 pixels.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
-|00FC|SCL|Scrolls the screen to the left by 4 pixels.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
+|00FB|SCR|Scrolls the screen (bit plane in some extensions) to the right by 4 pixels.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
+|00FC|SCL|Scrolls the screen (bit plane in some extensions) to the left by 4 pixels.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
 |00FD|EXIT|Exits the interpreter.|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |00FE|LOW|Enters Low Resolution Mode.|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |00FF|HIGH|Enters High Resolution Mode.|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
@@ -68,12 +68,12 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |ANNN|LD I, NNN|Loads the address into the I register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |BNNN|JP V0, NNN|Jumps to the absolute address + V0 register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |CXNN|RND VX, NN|Generates a random number based on the NN mask and stores the result in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
-|DXYN|DRW VX, VY, N|Draws the sprite stored in the I register with the height of N (if N == 0, draws a 16x16 sprite in SuperCHIP/XO-CHIP/HyperCHIP-64) located at (VX, VY).|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
+|DXYN|DRW VX, VY, N|Draws the sprite stored in the I register with the height of N (if N == 0, draws a 16x16 sprite in SuperCHIP/XO-CHIP/HyperCHIP-64) located at (VX, VY) on the screen (bit plane in some extextensions).|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |EX9E|SKP VX|Skips the following instruction if the key stored in the VX register was pressed.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |EXA1|SKNP VX|Skips the following instruction if the key stored in the VX register was not pressed.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
-|F000 NNNN|LD I, NNNN|Loads the 16-bit address into the I register.|XO-CHIP|
-|FN01|PLANE N|Set the drawing plane based on the bitmask specified by N.|XO-CHIP|
-|F002|AUDIO|Loads 16 bytes of data from starting at I into the audio pattern buffer.|XO-CHIP|
+|F000 NNNN|LD I, NNNN|Loads the 16-bit address into the I register.|XO-CHIP, HyperCHIP-64|
+|FN01|PLANE N|Set the drawing plane based on the bitmask specified by N.|XO-CHIP, HyperCHIP-64|
+|F002|AUDIO|Loads 16 bytes of data from starting at I into the audio pattern buffer.|XO-CHIP, HyperCHIP-64|
 |FX07|LD VX, DT|Sets the VX register to the delay timer register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX0A|LD VX, K|Waits for a keypress and then stores it in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX15|LD DT, VX|Sets the delay timer register to the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
@@ -84,11 +84,11 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |FX29|LD F, VX|Sets the I register to the 4x5 font sprite digit stored in the VX register.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX30|LD HF, VX|Sets the I register to the 8x10 font sprite digit stored in the VX register.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
 |FX33|LD B, VX|Stores the value in the VX register in 3-digit unpacked BCD form at I, I+1, and I+2.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
-|FX3A|PITCH VX|Sets the pitch register to the value in the VX register.|XO-CHIP|
+|FX3A|PITCH VX|Sets the pitch register to the value in the VX register.|XO-CHIP, HyperCHIP-64|
 |FX55|LD [I], VX|Stores registers V0 to VX in memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX65|LD VX, [I]|Loads registers V0 to VX from memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
-|FX75|LD R, VX|Stores registers V0 to VX in User RPL Flags. (X <= 7)|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
-|FX85|LD VX, R|Loads registers V0 to VX from User RPL Flags. (X <= 7)|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
+|FX75|LD R, VX|Stores registers V0 to VX in User RPL Flags. (X <= 7 in SuperCHIP V1.0/V1.1, X <= 15 in XO-CHIP and HyperCHIP-64)|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
+|FX85|LD VX, R|Loads registers V0 to VX from User RPL Flags. (X <= 7 in SuperCHIP V1.0/V1.1, X <= 15 in XO-CHIP and HyperCHIP-64)|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FXA2|LD I, [I + VX]|Loads the address stored in memory at I + VX into the I register.|HyperCHIP-64|
 
 ## Instruction Prefixes (HyperCHIP-64 Extension)
@@ -96,6 +96,7 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |-------|------------|----------------------|
 |FNB0|4-bit Absolute Address Extend Prefix that extends addresses.|JP NNNN; CALL NNNN; LD I, NNNN; JP V0, NNNN|
 |FXB1|V Register Offset Override Prefix that replaces the default register.|JP VX, NNN|
+|FNB2|Timer Select Prefix that allows selecting another timer (delay or sound).|LD VX, DT, N; LD DT, N, VX; LD ST, N, VX|
 
 ## Supported Notations
 |Notation |Description |

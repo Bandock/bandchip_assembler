@@ -813,7 +813,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::Plane;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-													if (CurrentExtension != ExtensionType::XOCHIP)
+													if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension!= ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::XOCHIPRequired;
@@ -825,7 +825,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::Audio;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-													if (CurrentExtension != ExtensionType::XOCHIP)
+													if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::XOCHIPRequired;
@@ -837,7 +837,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 													token_type = TokenType::Instruction;
 													current_instruction.Type = InstructionType::Pitch;
 													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
-													if (CurrentExtension != ExtensionType::XOCHIP)
+													if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 													{
 														error = true;
 														error_type = ErrorType::XOCHIPRequired;
@@ -1503,14 +1503,14 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												current_instruction.Type = InstructionType::Plane;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
 												error = true;
-												error_type = (CurrentExtension != ExtensionType::XOCHIP) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
+												error_type = (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
 											}
 											else if (t == "AUDIO")
 											{
 												token_type = TokenType::Instruction;
 												current_instruction.Type = InstructionType::Audio;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 0;
-												if (CurrentExtension != ExtensionType::XOCHIP)
+												if (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64)
 												{
 													error = true;
 													error_type = ErrorType::XOCHIPRequired;
@@ -1522,7 +1522,7 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												current_instruction.Type = InstructionType::Pitch;
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
 												error = true;
-												error_type = (CurrentExtension != ExtensionType::XOCHIP) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
+												error_type = (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
 											}
 											break;
 										}
