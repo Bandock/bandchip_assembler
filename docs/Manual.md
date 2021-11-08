@@ -1,4 +1,4 @@
-# BandCHIP Assembler Manual (Version 0.7)
+# BandCHIP Assembler Manual (Version 0.8)
 
 ## Getting Started
 Run the program, using the following syntax:
@@ -85,6 +85,9 @@ file contains valid CHIP-8 assembly language instructions, it should work fine.
 |FX30|LD HF, VX|Sets the I register to the 8x10 font sprite digit stored in the VX register.|SuperCHIP V1.1, XO-CHIP, HyperCHIP-64|
 |FX33|LD B, VX|Stores the value in the VX register in 3-digit unpacked BCD form at I, I+1, and I+2.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX3A|PITCH VX|Sets the pitch register to the value in the VX register.|XO-CHIP, HyperCHIP-64|
+|FX3B|VOLUME VX|Sets the volume of the currently selected voice to the value stored in the VX register.|HyperCHIP-64|
+|FN3C|VOICE N|Selects the voice specified by N.|HyperCHIP-64|
+|FN3D|CHANNEL N|Sets the channel mask of the voice currently selected.|HyperCHIP-64|
 |FX55|LD [I], VX|Stores registers V0 to VX in memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX65|LD VX, [I]|Loads registers V0 to VX from memory, starting at I.  The I register is incremented in this form 'I = I + X + 1'.|CHIP-8, SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|
 |FX75|LD R, VX|Stores registers V0 to VX in User RPL Flags. (X <= 7 in SuperCHIP V1.0/V1.1, X <= 15 in XO-CHIP and HyperCHIP-64)|SuperCHIP V1.0/V1.1, XO-CHIP, HyperCHIP-64|

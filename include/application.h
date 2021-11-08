@@ -23,7 +23,7 @@ namespace BandCHIP_Assembler
 		None, ClearScreen, Return, Jump, Call, SkipEqual, SkipNotEqual, Load, Add, Or, And, Xor,
 		Subtract, ShiftRight, SubtractN, ShiftLeft, Random, Draw, SkipKeyPressed, SkipKeyNotPressed,
 		ScrollDown, ScrollRight, ScrollLeft, Exit, Low, High, ScrollUp, Plane, Audio, Pitch,
-		RotateRight, RotateLeft, Test, Not
+		RotateRight, RotateLeft, Test, Not, Volume, Voice, Channel
 	};
 	enum class OperandType {
 		None, Label, Register, ImmediateValue, AddressRegister, DelayTimer, SoundTimer, Pointer,
@@ -80,12 +80,13 @@ namespace BandCHIP_Assembler
 			unsigned short current_address;
 			size_t error_count;
 			std::vector<std::string> Args;
-			const std::array<std::string, 40> TokenList = {
+			const std::array<std::string, 43> TokenList = {
 				"OUTPUT", "EXTENSION", "ALIGN", "ORG", "INCBIN", "DB", "DW",
 				"CLS", "RET", "JP", "CALL", "SE", "SNE", "LD", "ADD", "OR",
 				"AND", "XOR", "SUB", "SHR", "SUBN", "SHL", "RND", "DRW", "SKP",
 				"SKNP", "SCD", "SCR", "SCL", "EXIT", "LOW", "HIGH", "SCU",
-				"PLANE", "AUDIO", "PITCH", "ROR", "ROL", "TEST", "NOT"
+				"PLANE", "AUDIO", "PITCH", "ROR", "ROL", "TEST", "NOT", "VOLUME",
+				"VOICE", "CHANNEL"
 			};
 			const std::array<std::string, 2> OutputTypeList = {
 				"BINARY", "HEXASCIISTRING"
@@ -106,7 +107,7 @@ namespace BandCHIP_Assembler
 			std::vector<Symbol> SymbolTable;
 			std::vector<UnresolvedReferenceData> UnresolvedReferenceList;
 			std::vector<unsigned char> ProgramData;
-			const VersionData Version = { 0, 6 };
+			const VersionData Version = { 0, 8 };
 			int retcode;
 	};
 }

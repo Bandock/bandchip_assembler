@@ -844,6 +844,42 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 														break;
 													}
 												}
+												else if (t == "VOLUME")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Volume;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
+												else if (t == "VOICE")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Voice;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
+												else if (t == "CHANNEL")
+												{
+													token_type = TokenType::Instruction;
+													current_instruction.Type = InstructionType::Channel;
+													current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+													if (CurrentExtension != ExtensionType::HyperCHIP64)
+													{
+														error = true;
+														error_type = ErrorType::HyperCHIP64Required;
+														break;
+													}
+												}
 												token = "";
 												u_token = "";
 											}
@@ -1523,6 +1559,30 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
 												error = true;
 												error_type = (CurrentExtension != ExtensionType::XOCHIP && CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::XOCHIPRequired : ErrorType::TooFewOperands;
+											}
+											else if (t == "VOLUME")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Volume;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+											}
+											else if (t == "VOICE")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Voice;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
+											}
+											else if (t == "CHANNEL")
+											{
+												token_type = TokenType::Instruction;
+												current_instruction.Type = InstructionType::Channel;
+												current_instruction.OperandMinimum = current_instruction.OperandMaximum = 1;
+												error = true;
+												error_type = (CurrentExtension != ExtensionType::HyperCHIP64) ? ErrorType::HyperCHIP64Required : ErrorType::TooFewOperands;
 											}
 											break;
 										}
@@ -3483,6 +3543,95 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									}
 									break;
 								}
+								case InstructionType::Volume:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::Register:
+										{
+											unsigned char reg = 0x0;
+											if (!ProcessRegisterOperand(0, reg))
+											{
+												error = true;
+												error_type = ErrorType::InvalidRegister;
+												break;
+											}
+											ProgramData.push_back(0xF0 | (reg & 0xF));
+											ProgramData.push_back(0x3B);
+											current_address += 2;
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Voice:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											unsigned char value = Process8BitImmediateValueOperand(0);
+											if (error)
+											{
+												break;
+											}
+											ProgramData.push_back(0xF0 | (value & 0xF));
+											ProgramData.push_back(0x3C);
+											current_address += 2;
+											break;
+										}
+									}
+									break;
+								}
+								case InstructionType::Channel:
+								{
+									if (!OperandCountCheck())
+									{
+										break;
+									}
+									switch (current_instruction.OperandList[0].Type)
+									{
+										case OperandType::None:
+										{
+											error = true;
+											error_type = ErrorType::InvalidValue;
+											break;
+										}
+										case OperandType::ImmediateValue:
+										{
+											unsigned char value = Process8BitImmediateValueOperand(0);
+											if (error)
+											{
+												break;
+											}
+											ProgramData.push_back(0xF0 | (value & 0xF));
+											ProgramData.push_back(0x3D);
+											current_address += 2;
+											break;
+										}
+									}
+									break;
+								}
 							}
 						}
 						break;
@@ -3773,6 +3922,21 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 									std::cout << "SKNP";
 									break;
 								}
+								case InstructionType::Volume:
+								{
+									std::cout << "VOLUME";
+									break;
+								}
+								case InstructionType::Voice:
+								{
+									std::cout << "VOICE";
+									break;
+								}
+								case InstructionType::Channel:
+								{
+									std::cout << "CHANNEL";
+									break;
+								}
 							}
 							std::cout << " only has " << current_instruction.OperandList.size() << " operands (needs at least " << current_instruction.OperandMinimum << ").\n";
 							break;
@@ -3904,6 +4068,21 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 								case InstructionType::SkipKeyNotPressed:
 								{
 									std::cout << "SKNP";
+									break;
+								}
+								case InstructionType::Volume:
+								{
+									std::cout << "VOLUME";
+									break;
+								}
+								case InstructionType::Voice:
+								{
+									std::cout << "VOICE";
+									break;
+								}
+								case InstructionType::Channel:
+								{
+									std::cout << "CHANNEL";
 									break;
 								}
 							}
@@ -4143,6 +4322,21 @@ BandCHIP_Assembler::Application::Application(int argc, char *argv[]) : current_l
 											}
 										}
 									}
+									break;
+								}
+								case InstructionType::Volume:
+								{
+									std::cout << "VOLUME";
+									break;
+								}
+								case InstructionType::Voice:
+								{
+									std::cout << "VOICE";
+									break;
+								}
+								case InstructionType::Channel:
+								{
+									std::cout << "CHANNEL";
 									break;
 								}
 							}
