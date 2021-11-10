@@ -66,7 +66,7 @@ namespace BandCHIP_Assembler
 		size_t LineNumber;
 		unsigned short Address;
 		bool IsInstruction;
-		bool AbsoluteAddressExtended;
+		bool LongAddress;
 	};
 
 	class Application
@@ -80,13 +80,13 @@ namespace BandCHIP_Assembler
 			unsigned short current_address;
 			size_t error_count;
 			std::vector<std::string> Args;
-			const std::array<std::string, 43> TokenList = {
+			const std::array<std::string, 44> TokenList = {
 				"OUTPUT", "EXTENSION", "ALIGN", "ORG", "INCBIN", "DB", "DW",
 				"CLS", "RET", "JP", "CALL", "SE", "SNE", "LD", "ADD", "OR",
 				"AND", "XOR", "SUB", "SHR", "SUBN", "SHL", "RND", "DRW", "SKP",
 				"SKNP", "SCD", "SCR", "SCL", "EXIT", "LOW", "HIGH", "SCU",
 				"PLANE", "AUDIO", "PITCH", "ROR", "ROL", "TEST", "NOT", "VOLUME",
-				"VOICE", "CHANNEL"
+				"VOICE", "CHANNEL", "LONG"
 			};
 			const std::array<std::string, 2> OutputTypeList = {
 				"BINARY", "HEXASCIISTRING"
@@ -107,7 +107,7 @@ namespace BandCHIP_Assembler
 			std::vector<Symbol> SymbolTable;
 			std::vector<UnresolvedReferenceData> UnresolvedReferenceList;
 			std::vector<unsigned char> ProgramData;
-			const VersionData Version = { 0, 8 };
+			const VersionData Version = { 0, 9 };
 			int retcode;
 	};
 }
